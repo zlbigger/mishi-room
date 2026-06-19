@@ -8,7 +8,7 @@
       content="密室是一个给两个人使用的临时互动房间：分享链接和口令，一起写、画、贴图、传文件，结束后销毁。"
     />
     <title>密室 - 会消失的双人互动房间</title>
-    <link rel="stylesheet" href="/styles.css?v=5" />
+    <link rel="stylesheet" href="/styles.css?v=6" />
   </head>
   <body>
     <div id="app">
@@ -112,6 +112,7 @@
 
         <main class="studio">
           <nav class="toolbar" aria-label="画板工具">
+            <button class="tool-button" data-tool="move" type="button" title="移动画布 / 选择图片" aria-label="移动画布 / 选择图片">✥</button>
             <button class="tool-button active" data-tool="pen" type="button" title="画笔" aria-label="画笔">✎</button>
             <button class="tool-button" data-tool="eraser" type="button" title="橡皮" aria-label="橡皮">⌫</button>
             <button class="tool-button" data-tool="text" type="button" title="文字" aria-label="文字">T</button>
@@ -135,6 +136,10 @@
 
           <div id="canvas-wrap" class="canvas-wrap">
             <canvas id="board" aria-label="共享画板"></canvas>
+            <div class="viewport-hud" aria-hidden="true">
+              <span id="zoom-level">100%</span>
+              <span>滚轮缩放 · 空格拖拽</span>
+            </div>
             <div id="cursor-layer" class="cursor-layer" aria-hidden="true"></div>
             <form id="text-editor" class="text-editor hidden">
               <textarea maxlength="180" placeholder="写在画布上"></textarea>
@@ -201,6 +206,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=5" type="module"></script>
+    <script src="/app.js?v=6" type="module"></script>
   </body>
 </html>

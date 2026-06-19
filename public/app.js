@@ -25,6 +25,7 @@ const els = {
   confirmDestroy: $("#confirm-destroy"),
   canvasWrap: $("#canvas-wrap"),
   board: $("#board"),
+  zoomLevel: $("#zoom-level"),
   cursorLayer: $("#cursor-layer"),
   textEditor: $("#text-editor"),
   textArea: $("#text-editor textarea"),
@@ -55,7 +56,12 @@ const state = {
   currentStroke: null,
   currentTextPoint: null,
   pendingImagePoint: null,
-  lastBoardPoint: { x: 0.5, y: 0.5 },
+  lastBoardPoint: { x: 0, y: 0 },
+  viewport: { x: 0, y: 0, scale: 1 },
+  panInteraction: null,
+  imageInteraction: null,
+  selectedImageId: null,
+  isSpacePanning: false,
   imageCache: new Map(),
   cursors: new Map(),
   cursorSentAt: 0,
@@ -170,8 +176,9 @@ function setTool(tool) {
   $$(".tool-button[data-tool]").forEach((button) => {
     button.classList.toggle("active", button.dataset.tool === tool);
   });
+  els.canvasWrap.dataset.tool = tool;
   if (tool === "image") {
-    state.pendingImagePoint = { x: 0.5, y: 0.5 };
+    state.pendingImagePoint = pastePoint();
     els.imageInput.click();
   }
 }
@@ -201,11 +208,32 @@ function canvasSize() {
   };
 }
 
-function toPoint(event) {
+function toScreenPoint(event) {
   const rect = els.board.getBoundingClientRect();
-  const x = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
-  const y = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
-  return { x, y };
+  return {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top
+  };
+}
+
+function screenToWorld(screen) {
+  const { width, height } = canvasSize();
+  return {
+    x: (screen.x - width / 2 - state.viewport.x) / state.viewport.scale,
+    y: (screen.y - height / 2 - state.viewport.y) / state.viewport.scale
+  };
+}
+
+function worldToScreen(point) {
+  const { width, height } = canvasSize();
+  return {
+    x: point.x * state.viewport.scale + width / 2 + state.viewport.x,
+    y: point.y * state.viewport.scale + height / 2 + state.viewport.y
+  };
+}
+
+function toPoint(event) {
+  return screenToWorld(toScreenPoint(event));
 }
 
 function rememberBoardPoint(point) {
@@ -214,14 +242,38 @@ function rememberBoardPoint(point) {
 }
 
 function pastePoint() {
-  return state.pendingImagePoint || state.lastBoardPoint || { x: 0.5, y: 0.5 };
+  return state.pendingImagePoint || state.lastBoardPoint || { x: 0, y: 0 };
 }
 
 function pointDistance(a, b) {
-  const size = canvasSize();
-  const dx = (a.x - b.x) * size.width;
-  const dy = (a.y - b.y) * size.height;
+  const dx = (a.x - b.x) * state.viewport.scale;
+  const dy = (a.y - b.y) * state.viewport.scale;
   return Math.hypot(dx, dy);
+}
+
+function clampScale(value) {
+  return Math.min(8, Math.max(0.12, value));
+}
+
+function zoomAt(screen, nextScale) {
+  const scale = clampScale(nextScale);
+  const world = screenToWorld(screen);
+  const { width, height } = canvasSize();
+  state.viewport.scale = scale;
+  state.viewport.x = screen.x - width / 2 - world.x * scale;
+  state.viewport.y = screen.y - height / 2 - world.y * scale;
+  updateZoomHud();
+  scheduleDraw();
+}
+
+function panBy(dx, dy) {
+  state.viewport.x += dx;
+  state.viewport.y += dy;
+  scheduleDraw();
+}
+
+function updateZoomHud() {
+  els.zoomLevel.textContent = `${Math.round(state.viewport.scale * 100)}%`;
 }
 
 function scheduleDraw() {
@@ -235,10 +287,12 @@ function scheduleDraw() {
 function drawBoard() {
   const { width, height } = canvasSize();
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = "#fffdf7";
   ctx.fillRect(0, 0, width, height);
+  drawGrid();
   for (const event of state.events) drawEvent(event);
   if (state.currentStroke) drawStroke(state.currentStroke);
+  drawSelectedImage();
 }
 
 function drawEvent(event) {
@@ -247,19 +301,68 @@ function drawEvent(event) {
   if (event.type === "image") drawImage(event);
 }
 
+function drawGrid() {
+  const { width, height } = canvasSize();
+  const grid = 80;
+  const topLeft = screenToWorld({ x: 0, y: 0 });
+  const bottomRight = screenToWorld({ x: width, y: height });
+  const startX = Math.floor(topLeft.x / grid) * grid;
+  const endX = Math.ceil(bottomRight.x / grid) * grid;
+  const startY = Math.floor(topLeft.y / grid) * grid;
+  const endY = Math.ceil(bottomRight.y / grid) * grid;
+
+  ctx.save();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(23, 23, 23, 0.08)";
+  for (let x = startX; x <= endX; x += grid) {
+    const screen = worldToScreen({ x, y: 0 });
+    ctx.beginPath();
+    ctx.moveTo(screen.x, 0);
+    ctx.lineTo(screen.x, height);
+    ctx.stroke();
+  }
+  for (let y = startY; y <= endY; y += grid) {
+    const screen = worldToScreen({ x: 0, y });
+    ctx.beginPath();
+    ctx.moveTo(0, screen.y);
+    ctx.lineTo(width, screen.y);
+    ctx.stroke();
+  }
+
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(37, 88, 255, 0.18)";
+  const origin = worldToScreen({ x: 0, y: 0 });
+  ctx.beginPath();
+  ctx.moveTo(origin.x, 0);
+  ctx.lineTo(origin.x, height);
+  ctx.moveTo(0, origin.y);
+  ctx.lineTo(width, origin.y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function legacyPointToScreen(point) {
+  const { width, height } = canvasSize();
+  return { x: point.x * width, y: point.y * height };
+}
+
+function pointToScreen(point, item) {
+  return item?.space === "world" ? worldToScreen(point) : legacyPointToScreen(point);
+}
+
 function drawStroke(stroke) {
   if (!stroke.points || stroke.points.length < 2) return;
-  const { width, height } = canvasSize();
   ctx.save();
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.lineWidth = stroke.size || 5;
+  ctx.lineWidth = Math.max(1, (stroke.size || 5) * (stroke.space === "world" ? state.viewport.scale : 1));
   ctx.globalCompositeOperation = stroke.tool === "eraser" ? "destination-out" : "source-over";
   ctx.strokeStyle = stroke.color || "#252525";
   ctx.beginPath();
   stroke.points.forEach((point, index) => {
-    const x = point.x * width;
-    const y = point.y * height;
+    const screen = pointToScreen(point, stroke);
+    const x = screen.x;
+    const y = screen.y;
     if (index === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   });
@@ -287,15 +390,16 @@ function wrapLines(text, maxWidth) {
 }
 
 function drawText(item) {
-  const { width, height } = canvasSize();
-  const x = item.x * width;
-  const y = item.y * height;
-  const fontSize = Math.max(16, Math.min(24, item.size || 20));
+  const { width } = canvasSize();
+  const screen = item.space === "world" ? worldToScreen(item) : legacyPointToScreen(item);
+  const x = screen.x;
+  const y = screen.y;
+  const fontSize = Math.max(10, Math.min(48, (item.size || 20) * (item.space === "world" ? state.viewport.scale : 1)));
   ctx.save();
   ctx.font = `700 ${fontSize}px Inter, ui-sans-serif, system-ui, sans-serif`;
   ctx.textBaseline = "top";
   ctx.fillStyle = item.color || "#252525";
-  const lines = wrapLines(item.text, Math.min(300, width - x - 18));
+  const lines = wrapLines(item.text, Math.max(80, Math.min(300, width - x - 18)));
   const pad = 10;
   const lineHeight = fontSize * 1.36;
   const boxWidth = Math.min(320, Math.max(...lines.map((line) => ctx.measureText(line).width), 80) + pad * 2);
@@ -309,7 +413,6 @@ function drawText(item) {
 
 function drawImage(item) {
   if (!item.src) return;
-  const { width, height } = canvasSize();
   let image = state.imageCache.get(item.src);
   if (!image) {
     image = new Image();
@@ -318,26 +421,117 @@ function drawImage(item) {
     state.imageCache.set(item.src, image);
   }
   if (!image.complete) return;
-  const x = item.x * width;
-  const y = item.y * height;
-  const w = item.w * width;
-  const h = item.h * height;
+  const rect = imageRectScreen(item);
   ctx.save();
   ctx.fillStyle = "#fff";
   ctx.shadowColor = "rgba(0, 0, 0, 0.18)";
   ctx.shadowBlur = 16;
   ctx.shadowOffsetY = 6;
-  ctx.fillRect(x, y, w, h);
+  ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
   ctx.shadowColor = "transparent";
-  ctx.drawImage(image, x, y, w, h);
+  ctx.drawImage(image, rect.x, rect.y, rect.w, rect.h);
+  ctx.restore();
+}
+
+function imageRectScreen(item) {
+  if (item.space === "world") {
+    const screen = worldToScreen({ x: item.x, y: item.y });
+    return {
+      x: screen.x,
+      y: screen.y,
+      w: item.w * state.viewport.scale,
+      h: item.h * state.viewport.scale
+    };
+  }
+  const { width, height } = canvasSize();
+  return {
+    x: item.x * width,
+    y: item.y * height,
+    w: item.w * width,
+    h: item.h * height
+  };
+}
+
+function drawSelectedImage() {
+  const item = selectedImage();
+  if (!item) return;
+  const rect = imageRectScreen(item);
+  const handle = 14;
+  ctx.save();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#2558ff";
+  ctx.setLineDash([8, 5]);
+  ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#ffd84d";
+  ctx.strokeStyle = "#171717";
+  ctx.lineWidth = 2;
+  ctx.fillRect(rect.x + rect.w - handle / 2, rect.y + rect.h - handle / 2, handle, handle);
+  ctx.strokeRect(rect.x + rect.w - handle / 2, rect.y + rect.h - handle / 2, handle, handle);
   ctx.restore();
 }
 
 function appendEvent(event) {
+  if (event.type === "image-update") {
+    applyImageUpdate(event);
+    return;
+  }
   if (state.events.some((item) => item.id === event.id)) return;
   state.events.push(event);
   scheduleDraw();
   if (event.type === "file") renderFiles();
+}
+
+function selectedImage() {
+  return state.events.find((item) => item.type === "image" && item.id === state.selectedImageId) || null;
+}
+
+function imageEventsTopFirst() {
+  return state.events.filter((event) => event.type === "image").slice().reverse();
+}
+
+function hitImageAt(screen) {
+  const handleSize = 18;
+  for (const image of imageEventsTopFirst()) {
+    const rect = imageRectScreen(image);
+    const inHandle =
+      screen.x >= rect.x + rect.w - handleSize &&
+      screen.x <= rect.x + rect.w + handleSize &&
+      screen.y >= rect.y + rect.h - handleSize &&
+      screen.y <= rect.y + rect.h + handleSize;
+    if (inHandle) return { image, mode: "resize" };
+
+    const inBody =
+      screen.x >= rect.x &&
+      screen.x <= rect.x + rect.w &&
+      screen.y >= rect.y &&
+      screen.y <= rect.y + rect.h;
+    if (inBody) return { image, mode: "move" };
+  }
+  return null;
+}
+
+function applyImageUpdate(event) {
+  const target = state.events.find((item) => item.type === "image" && item.id === event.id);
+  if (!target) return;
+  for (const key of ["x", "y", "w", "h"]) {
+    if (Number.isFinite(Number(event[key]))) target[key] = Number(event[key]);
+  }
+  target.updatedAt = event.createdAt || Date.now();
+  target.updatedBy = event.actor;
+  scheduleDraw();
+}
+
+async function syncImageUpdate(image) {
+  if (!image || image.space !== "world") return;
+  await postEvent({
+    type: "image-update",
+    id: image.id,
+    x: image.x,
+    y: image.y,
+    w: image.w,
+    h: image.h
+  });
 }
 
 async function postEvent(event) {
@@ -365,7 +559,7 @@ function connectEvents() {
     scheduleDraw();
   });
 
-  for (const type of ["stroke", "text", "image", "file"]) {
+  for (const type of ["stroke", "text", "image", "image-update", "file"]) {
     source.addEventListener(type, (event) => appendEvent(JSON.parse(event.data)));
   }
 
@@ -469,7 +663,6 @@ function renderFiles() {
 
 function renderCursor(event) {
   if (!event.actor || event.actor.id === state.self?.id) return;
-  const { width, height } = canvasSize();
   let cursor = state.cursors.get(event.actor.id);
   if (!cursor) {
     cursor = document.createElement("div");
@@ -478,19 +671,24 @@ function renderCursor(event) {
     els.cursorLayer.append(cursor);
     state.cursors.set(event.actor.id, cursor);
   }
-  cursor.style.left = `${event.x * width}px`;
-  cursor.style.top = `${event.y * height}px`;
+  const screen = event.space === "world" ? worldToScreen(event) : legacyPointToScreen(event);
+  cursor.style.left = `${screen.x}px`;
+  cursor.style.top = `${screen.y}px`;
   cursor.style.setProperty("--cursor-color", event.actor.color || "#2558ff");
   cursor.querySelector("span").textContent = event.actor.name || "对方";
   clearTimeout(cursor.hideTimer);
-  cursor.hideTimer = setTimeout(() => cursor.remove(), 5000);
+  cursor.hideTimer = setTimeout(() => {
+    cursor.remove();
+    state.cursors.delete(event.actor.id);
+  }, 5000);
 }
 
 function openTextEditor(point) {
   state.currentTextPoint = point;
   const { width, height } = canvasSize();
-  els.textEditor.style.left = `${Math.min(point.x * width, width - 272)}px`;
-  els.textEditor.style.top = `${Math.min(point.y * height, height - 150)}px`;
+  const screen = worldToScreen(point);
+  els.textEditor.style.left = `${Math.min(Math.max(12, screen.x), width - 282)}px`;
+  els.textEditor.style.top = `${Math.min(Math.max(12, screen.y), height - 160)}px`;
   els.textArea.value = "";
   els.textEditor.classList.remove("hidden");
   els.textArea.focus();
@@ -520,7 +718,7 @@ async function addImageFile(file, point = { x: 0.5, y: 0.5 }) {
   await addImageSource(src, file.name || "粘贴图片", point);
 }
 
-async function addImageSource(src, name = "粘贴图片", point = { x: 0.5, y: 0.5 }) {
+async function addImageSource(src, name = "粘贴图片", point = { x: 0, y: 0 }) {
   if (!src) return;
   const image = new Image();
   image.onload = () => {
@@ -529,14 +727,17 @@ async function addImageSource(src, name = "粘贴图片", point = { x: 0.5, y: 0
     const ratio = image.width ? image.height / image.width : 0.7;
     const displayWidth = maxWidth;
     const displayHeight = Math.min(height * 0.5, displayWidth * ratio);
+    const worldWidth = displayWidth / state.viewport.scale;
+    const worldHeight = displayHeight / state.viewport.scale;
     postEvent({
       type: "image",
+      space: "world",
       src,
       name,
-      x: Math.min(0.92, Math.max(0.02, point.x - displayWidth / width / 2)),
-      y: Math.min(0.88, Math.max(0.02, point.y - displayHeight / height / 2)),
-      w: displayWidth / width,
-      h: displayHeight / height
+      x: point.x - worldWidth / 2,
+      y: point.y - worldHeight / 2,
+      w: worldWidth,
+      h: worldHeight
     });
   };
   image.onerror = () => {
@@ -598,6 +799,7 @@ function sendCursor(point) {
   state.cursorSentAt = now;
   postEvent({
     type: "cursor",
+    space: "world",
     x: point.x,
     y: point.y
   });
@@ -615,6 +817,81 @@ function handleDestroyed(data) {
   window.history.pushState(null, "", "/");
   const reason = data?.reason === "expired" ? "房间已到期自动销毁。" : "房间已经销毁。";
   showLobby(reason);
+}
+
+function beginPan(event, screen) {
+  event.preventDefault();
+  state.panInteraction = {
+    pointerId: event.pointerId,
+    last: screen
+  };
+  els.canvasWrap.classList.add("is-panning");
+  els.board.setPointerCapture(event.pointerId);
+}
+
+function beginImageInteraction(event, hit, screen, world) {
+  event.preventDefault();
+  const image = hit.image;
+  if (image.space !== "world") return;
+  state.selectedImageId = image.id;
+  state.imageInteraction = {
+    pointerId: event.pointerId,
+    mode: hit.mode,
+    startWorld: world,
+    original: {
+      x: image.x,
+      y: image.y,
+      w: image.w,
+      h: image.h
+    }
+  };
+  els.canvasWrap.classList.toggle("is-moving-image", hit.mode === "move");
+  els.canvasWrap.classList.toggle("is-resizing-image", hit.mode === "resize");
+  els.board.setPointerCapture(event.pointerId);
+  scheduleDraw();
+}
+
+function updateImageInteraction(world) {
+  const interaction = state.imageInteraction;
+  if (!interaction) return;
+  const image = selectedImage();
+  if (!image) return;
+  const dx = world.x - interaction.startWorld.x;
+  const dy = world.y - interaction.startWorld.y;
+
+  if (interaction.mode === "move") {
+    image.x = interaction.original.x + dx;
+    image.y = interaction.original.y + dy;
+  } else {
+    const minSize = 48 / state.viewport.scale;
+    const nextW = Math.max(minSize, interaction.original.w + dx);
+    const nextH = Math.max(minSize, interaction.original.h + dy);
+    const ratio = interaction.original.h / interaction.original.w || 1;
+    const scale = Math.max(nextW / interaction.original.w, nextH / interaction.original.h);
+    image.w = Math.max(minSize, interaction.original.w * scale);
+    image.h = Math.max(minSize, interaction.original.w * scale * ratio);
+  }
+  scheduleDraw();
+}
+
+async function finishImageInteraction(event) {
+  const interaction = state.imageInteraction;
+  if (!interaction) return;
+  if (event.pointerId === interaction.pointerId && els.board.hasPointerCapture(event.pointerId)) {
+    els.board.releasePointerCapture(event.pointerId);
+  }
+  state.imageInteraction = null;
+  els.canvasWrap.classList.remove("is-moving-image", "is-resizing-image");
+  await syncImageUpdate(selectedImage());
+}
+
+function finishPan(event) {
+  if (!state.panInteraction) return;
+  if (event.pointerId === state.panInteraction.pointerId && els.board.hasPointerCapture(event.pointerId)) {
+    els.board.releasePointerCapture(event.pointerId);
+  }
+  state.panInteraction = null;
+  els.canvasWrap.classList.remove("is-panning");
 }
 
 function bindEvents() {
@@ -668,8 +945,21 @@ function bindEvents() {
   });
 
   els.board.addEventListener("pointerdown", (event) => {
-    const point = rememberBoardPoint(toPoint(event));
+    const screen = toScreenPoint(event);
+    const point = rememberBoardPoint(screenToWorld(screen));
     sendCursor(point);
+
+    if (state.isSpacePanning || state.tool === "move") {
+      const hit = state.tool === "move" ? hitImageAt(screen) : null;
+      if (hit) beginImageInteraction(event, hit, screen, point);
+      else {
+        state.selectedImageId = null;
+        scheduleDraw();
+        beginPan(event, screen);
+      }
+      return;
+    }
+
     if (state.tool === "text") {
       openTextEditor(point);
       return;
@@ -692,8 +982,21 @@ function bindEvents() {
   });
 
   els.board.addEventListener("pointermove", (event) => {
-    const point = rememberBoardPoint(toPoint(event));
+    const screen = toScreenPoint(event);
+    const point = rememberBoardPoint(screenToWorld(screen));
     sendCursor(point);
+
+    if (state.panInteraction) {
+      panBy(screen.x - state.panInteraction.last.x, screen.y - state.panInteraction.last.y);
+      state.panInteraction.last = screen;
+      return;
+    }
+
+    if (state.imageInteraction) {
+      updateImageInteraction(point);
+      return;
+    }
+
     if (!state.currentStroke) return;
     const last = state.currentStroke.points[state.currentStroke.points.length - 1];
     if (pointDistance(point, last) > 2) {
@@ -703,6 +1006,14 @@ function bindEvents() {
   });
 
   els.board.addEventListener("pointerup", (event) => {
+    if (state.imageInteraction) {
+      finishImageInteraction(event);
+      return;
+    }
+    if (state.panInteraction) {
+      finishPan(event);
+      return;
+    }
     if (!state.currentStroke) return;
     els.board.releasePointerCapture(event.pointerId);
     const stroke = state.currentStroke;
@@ -711,10 +1022,20 @@ function bindEvents() {
     scheduleDraw();
   });
 
-  els.board.addEventListener("pointercancel", () => {
+  els.board.addEventListener("pointercancel", (event) => {
+    if (state.imageInteraction) finishImageInteraction(event);
+    if (state.panInteraction) finishPan(event);
     state.currentStroke = null;
     scheduleDraw();
   });
+
+  els.canvasWrap.addEventListener("wheel", (event) => {
+    if (!state.roomId) return;
+    event.preventDefault();
+    const screen = toScreenPoint(event);
+    const factor = Math.exp(-event.deltaY * 0.0014);
+    zoomAt(screen, state.viewport.scale * factor);
+  }, { passive: false });
 
   els.textEditor.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -722,6 +1043,7 @@ function bindEvents() {
     if (text && state.currentTextPoint) {
       postEvent({
         type: "text",
+        space: "world",
         text,
         color: state.color,
         size: 20,
@@ -805,12 +1127,29 @@ function bindEvents() {
     }
   });
 
+  window.addEventListener("keydown", (event) => {
+    if (event.code === "Space" && state.roomId && !["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) {
+      event.preventDefault();
+      state.isSpacePanning = true;
+      els.canvasWrap.dataset.tool = "move";
+    }
+  });
+
+  window.addEventListener("keyup", (event) => {
+    if (event.code === "Space") {
+      state.isSpacePanning = false;
+      els.canvasWrap.dataset.tool = state.tool;
+    }
+  });
+
   window.addEventListener("resize", resizeCanvas);
 }
 
 function init() {
   els.roomPassword.value = makePassword();
   bindEvents();
+  updateZoomHud();
+  els.canvasWrap.dataset.tool = state.tool;
   resizeCanvas();
   const roomId = currentRoomIdFromPath();
   if (roomId) showJoin(roomId);

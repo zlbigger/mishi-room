@@ -305,7 +305,7 @@ async function handleApi(req, res) {
 
         const event = body.event || {};
         const type = sanitizeText(event.type);
-        if (!["stroke", "text", "image", "file", "cursor"].includes(type)) {
+        if (!["stroke", "text", "image", "image-update", "file", "cursor"].includes(type)) {
           badRequest(res, "不支持的事件类型。");
           return;
         }
@@ -322,7 +322,20 @@ async function handleApi(req, res) {
           createdAt: Date.now()
         };
 
-        if (type !== "cursor") {
+        if (type === "image-update") {
+          const target = room.events.find((item) => item.type === "image" && item.id === payload.id);
+          if (!target) {
+            badRequest(res, "要更新的图片不存在。");
+            return;
+          }
+          for (const key of ["x", "y", "w", "h"]) {
+            if (Number.isFinite(Number(payload[key]))) {
+              target[key] = Number(payload[key]);
+            }
+          }
+          target.updatedAt = payload.createdAt;
+          target.updatedBy = payload.actor;
+        } else if (type !== "cursor") {
           room.events.push(payload);
           pruneEvents(room);
         }
