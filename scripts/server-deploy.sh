@@ -56,10 +56,26 @@ configure_nginx() {
     return 0
   fi
 
+  local cert_dir="/www/server/panel/vhost/cert/${DOMAIN}"
+  local ssl_block=""
+  local ssl_listen=""
+
+  if [ -f "${cert_dir}/fullchain.pem" ] && [ -f "${cert_dir}/privkey.pem" ]; then
+    ssl_listen="    listen 443 ssl;
+    listen [::]:443 ssl;"
+    ssl_block="
+    ssl_certificate    ${cert_dir}/fullchain.pem;
+    ssl_certificate_key    ${cert_dir}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;"
+  fi
+
   cat > "${conf_dir}/${DOMAIN}.conf" <<NGINX
 server {
     listen 80;
+${ssl_listen}
     server_name ${DOMAIN};
+${ssl_block}
 
     location / {
         proxy_pass http://127.0.0.1:${PORT};
