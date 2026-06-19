@@ -52,6 +52,29 @@ http://localhost:4173
 
 当前实现无第三方运行依赖，使用原生 Node.js HTTP 服务和浏览器前端。房间数据保存在内存里，服务重启后会消失。
 
+## 项目文档
+
+- [需求文档](docs/需求文档.md)
+
+## 自动部署
+
+项目已预留 GitHub Actions 自动部署流程：
+
+- 触发方式：推送到 `master` 分支，或在 GitHub Actions 页面手动触发。
+- 目标目录：`/www/wwwroot/mishi.zlbigger.com`
+- 服务端口：`4173`
+- 服务托管：优先使用 PM2；如果服务器没有 PM2，则自动创建 `systemd` 服务 `mishi-room.service`。
+- 反向代理：如果服务器存在 Nginx 配置目录，会生成 `mishi.zlbigger.com` 的 80 端口反向代理配置。
+
+GitHub 仓库需要配置以下 Secrets：
+
+- `MISHI_SERVER_HOST`
+- `MISHI_SERVER_USER`
+- `MISHI_SERVER_PASSWORD`
+- `MISHI_SERVER_PORT`
+- `MISHI_DEPLOY_PATH`
+- `MISHI_DOMAIN`
+
 ## 下一步路线
 
 - 端到端加密：口令只在浏览器侧派生密钥。

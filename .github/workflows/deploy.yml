@@ -1,0 +1,48 @@
+name: Deploy Mishi Room
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Sync to server
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Ensure remote directory
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.MISHI_SERVER_HOST }}
+          username: ${{ secrets.MISHI_SERVER_USER }}
+          password: ${{ secrets.MISHI_SERVER_PASSWORD }}
+          port: ${{ secrets.MISHI_SERVER_PORT }}
+          script: |
+            mkdir -p "${{ secrets.MISHI_DEPLOY_PATH }}"
+
+      - name: Upload project files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.MISHI_SERVER_HOST }}
+          username: ${{ secrets.MISHI_SERVER_USER }}
+          password: ${{ secrets.MISHI_SERVER_PASSWORD }}
+          port: ${{ secrets.MISHI_SERVER_PORT }}
+          source: "README.md,package.json,server.mjs,ecosystem.config.cjs,public,docs,scripts"
+          target: ${{ secrets.MISHI_DEPLOY_PATH }}
+          overwrite: true
+
+      - name: Restart service and reload proxy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.MISHI_SERVER_HOST }}
+          username: ${{ secrets.MISHI_SERVER_USER }}
+          password: ${{ secrets.MISHI_SERVER_PASSWORD }}
+          port: ${{ secrets.MISHI_SERVER_PORT }}
+          script: |
+            cd "${{ secrets.MISHI_DEPLOY_PATH }}"
+            bash scripts/server-deploy.sh "${{ secrets.MISHI_DOMAIN }}" "4173"
