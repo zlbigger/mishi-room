@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="密室是一个给两个人使用的临时互动房间：分享链接和口令，一起写、画、贴图、传文件，结束后销毁。"
+    />
+    <title>密室 - 会消失的双人互动房间</title>
+    <link rel="stylesheet" href="/styles.css?v=5" />
+  </head>
+  <body>
+    <div id="app">
+      <section id="lobby" class="lobby">
+        <div class="lobby-copy">
+          <p class="eyebrow">Mishi Room</p>
+          <h1>密室</h1>
+          <p class="lead">发一个链接，和对方进入一间会消失的房间。写点秘密，画点心情，贴张图，然后让它消失。</p>
+          <div class="promise-row" aria-label="产品特点">
+            <span>免注册</span>
+            <span>口令进入</span>
+            <span>随时销毁</span>
+          </div>
+          <div class="lobby-showcase" aria-hidden="true">
+            <div class="mini-board">
+              <span class="mini-pin"></span>
+              <span class="mini-line line-a"></span>
+              <span class="mini-line line-b"></span>
+              <span class="mini-bubble bubble-a">hi</span>
+              <span class="mini-bubble bubble-b">贴一张图</span>
+              <span class="mini-photo"></span>
+            </div>
+            <div class="mini-ticket">
+              <span>mishi.link/8F7K</span>
+              <strong>moon-2941</strong>
+            </div>
+          </div>
+        </div>
+
+        <form id="create-form" class="entry-panel" autocomplete="off">
+          <div class="form-head">
+            <h2>创建密室</h2>
+            <p>复制链接和口令给任何人，对方就能进入同一个临时空间。</p>
+          </div>
+
+          <label>
+            房间名称
+            <input id="room-title" name="title" maxlength="32" value="今晚的密室" />
+          </label>
+
+          <label>
+            进入口令
+            <span class="inline-control">
+              <input id="room-password" name="password" maxlength="48" />
+              <button class="icon-button" id="random-password" type="button" title="生成口令" aria-label="生成口令">↻</button>
+            </span>
+          </label>
+
+          <fieldset>
+            <legend>房间氛围</legend>
+            <div class="segmented">
+              <label><input type="radio" name="mode" value="intimate" checked />亲密</label>
+              <label><input type="radio" name="mode" value="stranger" />陌生人</label>
+              <label><input type="radio" name="mode" value="work" />协作</label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>自动销毁</legend>
+            <div class="segmented">
+              <label><input type="radio" name="ttl" value="60" checked />1 小时</label>
+              <label><input type="radio" name="ttl" value="1440" />24 小时</label>
+              <label><input type="radio" name="ttl" value="10080" />7 天</label>
+            </div>
+          </fieldset>
+
+          <p id="create-error" class="field-error" role="alert"></p>
+          <button class="primary-action" type="submit">开启密室</button>
+        </form>
+
+        <form id="join-form" class="entry-panel hidden" autocomplete="off">
+          <div class="form-head">
+            <h2>进入密室</h2>
+            <p id="join-room-id">输入对方给你的口令。</p>
+          </div>
+          <label>
+            你的称呼
+            <input id="join-name" maxlength="24" placeholder="留空也可以" />
+          </label>
+          <label>
+            房间口令
+            <input id="join-password" maxlength="48" type="password" />
+          </label>
+          <p id="join-error" class="field-error" role="alert"></p>
+          <button class="primary-action" type="submit">进入密室</button>
+        </form>
+      </section>
+
+      <section id="room" class="room hidden">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Room</p>
+            <h2 id="active-title">密室</h2>
+          </div>
+          <div class="topbar-actions">
+            <span id="expires-in" class="timer tabular" title="自动销毁倒计时">--</span>
+            <button id="share-button" class="text-button" type="button">邀请</button>
+            <button id="destroy-button" class="danger-button" type="button">销毁</button>
+          </div>
+        </header>
+
+        <main class="studio">
+          <nav class="toolbar" aria-label="画板工具">
+            <button class="tool-button active" data-tool="pen" type="button" title="画笔" aria-label="画笔">✎</button>
+            <button class="tool-button" data-tool="eraser" type="button" title="橡皮" aria-label="橡皮">⌫</button>
+            <button class="tool-button" data-tool="text" type="button" title="文字" aria-label="文字">T</button>
+            <button class="tool-button" data-tool="image" type="button" title="贴图" aria-label="贴图">▣</button>
+            <label class="tool-button file-trigger" title="附件" aria-label="附件">
+              ⇪
+              <input id="file-input" type="file" multiple />
+            </label>
+            <input id="image-input" class="hidden" type="file" accept="image/*" />
+            <div class="swatches" aria-label="颜色">
+              <button class="swatch active" data-color="#2558ff" style="--swatch:#2558ff" type="button" aria-label="蓝色"></button>
+              <button class="swatch" data-color="#00a884" style="--swatch:#00a884" type="button" aria-label="绿色"></button>
+              <button class="swatch" data-color="#171717" style="--swatch:#171717" type="button" aria-label="黑色"></button>
+              <button class="swatch" data-color="#ff7a59" style="--swatch:#ff7a59" type="button" aria-label="珊瑚色"></button>
+            </div>
+            <label class="size-control" title="笔触大小">
+              <span>粗细</span>
+              <input id="brush-size" type="range" min="2" max="18" value="5" />
+            </label>
+          </nav>
+
+          <div id="canvas-wrap" class="canvas-wrap">
+            <canvas id="board" aria-label="共享画板"></canvas>
+            <div id="cursor-layer" class="cursor-layer" aria-hidden="true"></div>
+            <form id="text-editor" class="text-editor hidden">
+              <textarea maxlength="180" placeholder="写在画布上"></textarea>
+              <div>
+                <button type="button" id="text-cancel">取消</button>
+                <button type="submit">贴上</button>
+              </div>
+            </form>
+            <div id="drop-hint" class="drop-hint hidden">松手贴到画布</div>
+          </div>
+
+          <aside class="side-panel">
+            <section class="panel-section">
+              <div class="section-head">
+                <h3>邀请</h3>
+                <span id="presence-count" class="count">0 在线</span>
+              </div>
+              <div class="share-box">
+                <label>
+                  链接
+                  <input id="share-link" readonly />
+                </label>
+                <label>
+                  口令
+                  <input id="share-password" readonly />
+                </label>
+                <button id="copy-invite" class="secondary-action" type="button">复制邀请信息</button>
+              </div>
+              <div id="presence-list" class="presence-list"></div>
+            </section>
+
+            <section class="panel-section">
+              <div class="section-head">
+                <h3>附件</h3>
+                <span id="file-count" class="count">0 个</span>
+              </div>
+              <div id="file-list" class="file-list empty-state">
+                <p>还没有附件。</p>
+                <label class="secondary-action compact">
+                  选择文件
+                  <input id="side-file-input" type="file" multiple />
+                </label>
+              </div>
+            </section>
+
+            <section class="panel-section quiet">
+              <h3>安全规则</h3>
+              <p>密室不会出现在公开列表里。链接加口令才可进入；任意一方都可以销毁，过期后自动消失。</p>
+            </section>
+          </aside>
+        </main>
+      </section>
+    </div>
+
+    <dialog id="destroy-dialog" class="confirm-dialog">
+      <form method="dialog">
+        <h2>销毁这个密室？</h2>
+        <p>销毁后，双方都会立刻断开，画板、贴图和附件不会再显示。</p>
+        <div class="dialog-actions">
+          <button value="cancel" type="submit">取消</button>
+          <button id="confirm-destroy" value="destroy" class="danger-button" type="button">确认销毁</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="/app.js?v=5" type="module"></script>
+  </body>
+</html>
