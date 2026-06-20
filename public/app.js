@@ -1159,6 +1159,7 @@ function bindEvents() {
     els.board.setPointerCapture(event.pointerId);
     state.currentStroke = {
       type: "stroke",
+      space: "world",
       tool: state.tool,
       color: state.color,
       size: state.tool === "eraser" ? state.size * 2.2 : state.size,
