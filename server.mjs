@@ -163,6 +163,49 @@ function clientColor(index) {
   return colors[index % colors.length];
 }
 
+const aliasAdjectives = [
+  "薄荷",
+  "月光",
+  "纸飞机",
+  "蓝莓",
+  "落日",
+  "玻璃",
+  "电台",
+  "雨后",
+  "雪松",
+  "微醺",
+  "海盐",
+  "星尘"
+];
+
+const aliasNouns = [
+  "画师",
+  "邮差",
+  "密探",
+  "来客",
+  "记录员",
+  "涂鸦师",
+  "放映员",
+  "收藏家",
+  "观察员",
+  "合伙人",
+  "拆信人",
+  "造梦师"
+];
+
+function randomItem(items, offset = 0) {
+  return items[(randomBytes(1)[0] + offset) % items.length];
+}
+
+function makeAlias(room, index) {
+  const usedNames = new Set([...room.sessions.values()].map((session) => session.name));
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    const name = `${randomItem(aliasAdjectives, attempt)}${randomItem(aliasNouns, index + attempt)}`;
+    if (!usedNames.has(name)) return name;
+  }
+  return `${randomItem(aliasAdjectives)}${randomItem(aliasNouns)} ${index + 1}`;
+}
+
 function sanitizeText(value, fallback = "") {
   return String(value || fallback).slice(0, 160).trim();
 }
@@ -278,7 +321,7 @@ async function handleApi(req, res) {
         const session = {
           id: makeId(6),
           token,
-          name: sanitizeText(body.name, sessionIndex === 0 ? "你" : `访客 ${sessionIndex + 1}`),
+          name: makeAlias(room, sessionIndex),
           color: clientColor(sessionIndex),
           joinedAt: Date.now(),
           lastSeen: Date.now()

@@ -13,7 +13,6 @@ const els = {
   randomPassword: $("#random-password"),
   joinRoomId: $("#join-room-id"),
   joinPassword: $("#join-password"),
-  joinName: $("#join-name"),
   activeTitle: $("#active-title"),
   expiresIn: $("#expires-in"),
   shareLink: $("#share-link"),
@@ -37,6 +36,8 @@ const els = {
   brushSize: $("#brush-size"),
   presenceCount: $("#presence-count"),
   presenceList: $("#presence-list"),
+  identityCards: $$(".identity-card"),
+  identityNames: $$(".identity-name"),
   fileCount: $("#file-count"),
   fileList: $("#file-list"),
   toast: $("#toast")
@@ -111,7 +112,7 @@ function currentRoomIdFromPath() {
 function showJoin(roomId) {
   els.createForm.classList.add("hidden");
   els.joinForm.classList.remove("hidden");
-  els.joinRoomId.textContent = `房间 ${roomId}`;
+  els.joinRoomId.textContent = `房间 ${roomId} 正在等你，口令对了就入室。`;
   els.joinPassword.focus();
 }
 
@@ -596,15 +597,15 @@ async function createRoom(form) {
       ttlMinutes: Number(formData.get("ttl"))
     });
     window.history.pushState(null, "", `/r/${data.room.id}`);
-    await joinRoom(data.room.id, password, "你");
+    await joinRoom(data.room.id, password);
   } catch (error) {
     setError(els.createError, error.message);
   }
 }
 
-async function joinRoom(roomId, password, name) {
+async function joinRoom(roomId, password) {
   try {
-    const data = await api(`/api/rooms/${roomId}/join`, { password, name });
+    const data = await api(`/api/rooms/${roomId}/join`, { password });
     state.roomId = roomId;
     state.password = password;
     state.token = data.token;
@@ -616,10 +617,11 @@ async function joinRoom(roomId, password, name) {
     showRoom();
     connectEvents();
     renderFiles();
+    renderIdentity();
     updateTimer();
     clearInterval(state.timer);
     state.timer = setInterval(updateTimer, 1000);
-    toast("已进入密室。");
+    toast(`你的临时代号：${data.self.name}`);
   } catch (error) {
     throw error;
   }
@@ -631,10 +633,22 @@ function renderPresence(members) {
   for (const member of members) {
     const item = document.createElement("div");
     item.className = "presence-item";
+    item.classList.toggle("is-self", member.id === state.self?.id);
     item.innerHTML = `<span class="presence-dot" style="--dot:${member.color}"></span><span></span>`;
     item.querySelector("span:last-child").textContent = member.id === state.self?.id ? `${member.name}（你）` : member.name;
     els.presenceList.append(item);
   }
+}
+
+function renderIdentity() {
+  if (!state.self?.name) {
+    els.identityCards.forEach((card) => card.classList.add("hidden"));
+    return;
+  }
+  els.identityNames.forEach((name) => {
+    name.textContent = state.self.name;
+  });
+  els.identityCards.forEach((card) => card.classList.remove("hidden"));
 }
 
 function renderFiles() {
@@ -812,8 +826,10 @@ function handleDestroyed(data) {
   state.source = null;
   state.room = null;
   state.token = null;
+  state.self = null;
   state.events = [];
   state.cursors.clear();
+  renderIdentity();
   els.cursorLayer.innerHTML = "";
   clearInterval(state.timer);
   window.history.pushState(null, "", "/");
@@ -912,7 +928,7 @@ function bindEvents() {
     if (!roomId) return;
     setError(els.joinError);
     try {
-      await joinRoom(roomId, els.joinPassword.value.trim(), els.joinName.value.trim());
+      await joinRoom(roomId, els.joinPassword.value.trim());
     } catch (error) {
       setError(els.joinError, error.message);
     }

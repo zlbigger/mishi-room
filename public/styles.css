@@ -481,6 +481,35 @@ textarea {
   font-weight: 800;
 }
 
+.identity-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 16px;
+  border: 2px dashed var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  padding: 12px;
+}
+
+.identity-preview span,
+.identity-row span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.identity-preview strong,
+.identity-row strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .room {
   height: 100dvh;
   min-height: 560px;
@@ -517,6 +546,21 @@ textarea {
 .topbar .eyebrow {
   margin-bottom: 5px;
   padding: 4px 8px;
+}
+
+.identity-kicker {
+  margin: 6px 0 0;
+  max-width: 42vw;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.identity-kicker strong {
+  color: var(--ink);
 }
 
 .topbar-actions {
@@ -813,6 +857,16 @@ textarea {
   gap: 10px;
 }
 
+.identity-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  border-bottom: 2px solid var(--soft-line);
+  padding-bottom: 12px;
+}
+
 .share-box label {
   margin: 0;
 }
@@ -845,6 +899,10 @@ textarea {
   align-items: center;
   gap: 8px;
   font-weight: 900;
+}
+
+.presence-item.is-self {
+  background: var(--yellow);
 }
 
 .presence-dot {

@@ -8,7 +8,7 @@
       content="密室是一个给两个人使用的临时互动房间：分享链接和口令，一起写、画、贴图、传文件，结束后销毁。"
     />
     <title>密室 - 会消失的双人互动房间</title>
-    <link rel="stylesheet" href="/styles.css?v=7" />
+    <link rel="stylesheet" href="/styles.css?v=8" />
   </head>
   <body>
     <div id="app">
@@ -84,10 +84,10 @@
             <h2>进入密室</h2>
             <p id="join-room-id">输入对方给你的口令。</p>
           </div>
-          <label>
-            你的称呼
-            <input id="join-name" maxlength="24" placeholder="留空也可以" />
-          </label>
+          <div class="identity-preview" aria-live="polite">
+            <span>临时代号</span>
+            <strong>入室后揭晓</strong>
+          </div>
           <label>
             房间口令
             <input id="join-password" maxlength="48" type="password" />
@@ -102,6 +102,7 @@
           <div>
             <p class="eyebrow">Room</p>
             <h2 id="active-title">密室</h2>
+            <p class="identity-card identity-kicker hidden">代号 <strong class="identity-name">--</strong></p>
           </div>
           <div class="topbar-actions">
             <span id="expires-in" class="timer tabular" title="自动销毁倒计时">--</span>
@@ -157,6 +158,10 @@
                 <h3>邀请</h3>
                 <span id="presence-count" class="count">0 在线</span>
               </div>
+              <div class="identity-card identity-row hidden">
+                <span>我的代号</span>
+                <strong class="identity-name">--</strong>
+              </div>
               <div class="share-box">
                 <label>
                   链接
@@ -206,6 +211,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=7" type="module"></script>
+    <script src="/app.js?v=8" type="module"></script>
   </body>
 </html>
