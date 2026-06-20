@@ -8,7 +8,7 @@
       content="密室是一个给两个人使用的临时互动房间：分享链接和口令，一起写、画、贴图、传文件，结束后销毁。"
     />
     <title>密室 - 会消失的双人互动房间</title>
-    <link rel="stylesheet" href="/styles.css?v=8" />
+    <link rel="stylesheet" href="/styles.css?v=9" />
   </head>
   <body>
     <div id="app">
@@ -137,10 +137,15 @@
 
           <div id="canvas-wrap" class="canvas-wrap">
             <canvas id="board" aria-label="共享画板"></canvas>
-            <div class="viewport-hud" aria-hidden="true">
-              <span id="zoom-level">100%</span>
-              <span>滚轮缩放 · 空格拖拽</span>
+            <div class="zoom-controls" aria-label="画布缩放">
+              <button id="zoom-out" type="button" title="缩小" aria-label="缩小">−</button>
+              <button id="zoom-reset" class="zoom-percent" type="button" title="重置缩放" aria-label="重置缩放">
+                <span id="zoom-level">100%</span>
+              </button>
+              <button id="zoom-in" type="button" title="放大" aria-label="放大">+</button>
+              <button id="zoom-fit" type="button" title="回到内容" aria-label="回到内容">⌖</button>
             </div>
+            <div id="selection-hint" class="selection-hint hidden" aria-live="polite">贴图已选中</div>
             <div id="cursor-layer" class="cursor-layer" aria-hidden="true"></div>
             <form id="text-editor" class="text-editor hidden">
               <textarea maxlength="180" placeholder="写在画布上"></textarea>
@@ -211,6 +216,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=8" type="module"></script>
+    <script src="/app.js?v=9" type="module"></script>
   </body>
 </html>

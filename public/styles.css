@@ -700,30 +700,72 @@ textarea {
   pointer-events: none;
 }
 
-.viewport-hud {
+.canvas-wrap.can-grab-image #board {
+  cursor: grab;
+}
+
+.canvas-wrap.can-resize-image #board {
+  cursor: nwse-resize;
+}
+
+.zoom-controls {
   position: absolute;
-  right: 18px;
+  left: 18px;
   bottom: 18px;
   z-index: 10;
   display: flex;
   align-items: center;
-  gap: 8px;
+  overflow: hidden;
   border: 2px solid var(--line);
   border-radius: 8px;
   background: rgb(255 253 247 / 0.92);
   box-shadow: 3px 3px 0 var(--line);
   color: var(--ink);
-  padding: 8px 10px;
-  font-size: 12px;
-  font-weight: 900;
-  pointer-events: none;
 }
 
-.viewport-hud span:first-child {
+.zoom-controls button {
+  min-width: 42px;
+  min-height: 38px;
+  border: 0;
+  border-right: 2px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.zoom-controls button:last-child {
+  border-right: 0;
+}
+
+.zoom-controls button:hover,
+.zoom-controls button:focus-visible {
+  background: var(--yellow);
+}
+
+.zoom-percent {
+  min-width: 62px;
+  font-variant-numeric: tabular-nums;
+}
+
+.selection-hint {
+  position: absolute;
+  left: 18px;
+  bottom: 68px;
+  z-index: 10;
+  max-width: min(360px, calc(100% - 36px));
+  overflow: hidden;
+  border: 2px solid var(--line);
   border-radius: 999px;
   background: var(--yellow);
-  padding: 3px 7px;
-  font-variant-numeric: tabular-nums;
+  box-shadow: 3px 3px 0 var(--line);
+  color: var(--ink);
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .remote-cursor {

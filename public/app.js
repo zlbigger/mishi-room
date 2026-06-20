@@ -25,6 +25,11 @@ const els = {
   canvasWrap: $("#canvas-wrap"),
   board: $("#board"),
   zoomLevel: $("#zoom-level"),
+  zoomOut: $("#zoom-out"),
+  zoomIn: $("#zoom-in"),
+  zoomReset: $("#zoom-reset"),
+  zoomFit: $("#zoom-fit"),
+  selectionHint: $("#selection-hint"),
   cursorLayer: $("#cursor-layer"),
   textEditor: $("#text-editor"),
   textArea: $("#text-editor textarea"),
@@ -180,6 +185,11 @@ function setTool(tool) {
     button.classList.toggle("active", button.dataset.tool === tool);
   });
   els.canvasWrap.dataset.tool = tool;
+  if (tool !== "move") {
+    state.selectedImageId = null;
+    updateSelectionHint();
+    scheduleDraw();
+  }
   if (tool === "image") {
     state.pendingImagePoint = pastePoint();
     els.imageInput.click();
@@ -265,6 +275,96 @@ function zoomAt(screen, nextScale) {
   state.viewport.scale = scale;
   state.viewport.x = screen.x - width / 2 - world.x * scale;
   state.viewport.y = screen.y - height / 2 - world.y * scale;
+  updateZoomHud();
+  scheduleDraw();
+}
+
+function zoomFromCenter(factor) {
+  const { width, height } = canvasSize();
+  zoomAt({ x: width / 2, y: height / 2 }, state.viewport.scale * factor);
+}
+
+function resetViewport() {
+  state.viewport = { x: 0, y: 0, scale: 1 };
+  updateZoomHud();
+  scheduleDraw();
+}
+
+function includeBounds(bounds, x, y) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return bounds;
+  return {
+    minX: Math.min(bounds.minX, x),
+    minY: Math.min(bounds.minY, y),
+    maxX: Math.max(bounds.maxX, x),
+    maxY: Math.max(bounds.maxY, y)
+  };
+}
+
+function pointToWorld(point, item) {
+  return item?.space === "world" ? point : screenToWorld(legacyPointToScreen(point));
+}
+
+function textBounds(item) {
+  const origin = pointToWorld(item, item);
+  const size = item.space === "world" ? item.size || 20 : 20 / state.viewport.scale;
+  const lines = String(item.text || "").split("\n").slice(0, 8);
+  const longestLine = Math.max(4, ...lines.map((line) => line.length));
+  return {
+    minX: origin.x - 10,
+    minY: origin.y - 10,
+    maxX: origin.x + Math.min(360, longestLine * size * 0.72) + 20,
+    maxY: origin.y + Math.max(1, lines.length) * size * 1.36 + 20
+  };
+}
+
+function contentBounds() {
+  let bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+  for (const event of state.events) {
+    if (event.type === "stroke") {
+      for (const point of event.points || []) {
+        const world = pointToWorld(point, event);
+        bounds = includeBounds(bounds, world.x, world.y);
+      }
+    }
+    if (event.type === "text") {
+      const box = textBounds(event);
+      bounds = includeBounds(bounds, box.minX, box.minY);
+      bounds = includeBounds(bounds, box.maxX, box.maxY);
+    }
+    if (event.type === "image") {
+      if (event.space === "world") {
+        bounds = includeBounds(bounds, event.x, event.y);
+        bounds = includeBounds(bounds, event.x + event.w, event.y + event.h);
+      } else {
+        const { width, height } = canvasSize();
+        const topLeft = screenToWorld({ x: event.x * width, y: event.y * height });
+        const bottomRight = screenToWorld({ x: (event.x + event.w) * width, y: (event.y + event.h) * height });
+        bounds = includeBounds(bounds, topLeft.x, topLeft.y);
+        bounds = includeBounds(bounds, bottomRight.x, bottomRight.y);
+      }
+    }
+  }
+  return Number.isFinite(bounds.minX) ? bounds : null;
+}
+
+function fitToContent() {
+  const bounds = contentBounds();
+  if (!bounds) {
+    resetViewport();
+    return;
+  }
+  const { width, height } = canvasSize();
+  const padding = Math.min(140, Math.max(56, Math.min(width, height) * 0.16));
+  const contentWidth = Math.max(1, bounds.maxX - bounds.minX);
+  const contentHeight = Math.max(1, bounds.maxY - bounds.minY);
+  const availableWidth = Math.max(120, width - padding * 2);
+  const availableHeight = Math.max(120, height - padding * 2);
+  const scale = clampScale(Math.min(2.4, availableWidth / contentWidth, availableHeight / contentHeight));
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  const centerY = (bounds.minY + bounds.maxY) / 2;
+  state.viewport.scale = scale;
+  state.viewport.x = -centerX * scale;
+  state.viewport.y = -centerY * scale;
   updateZoomHud();
   scheduleDraw();
 }
@@ -489,6 +589,16 @@ function selectedImage() {
   return state.events.find((item) => item.type === "image" && item.id === state.selectedImageId) || null;
 }
 
+function updateSelectionHint() {
+  const image = selectedImage();
+  if (!image) {
+    els.selectionHint.classList.add("hidden");
+    return;
+  }
+  els.selectionHint.textContent = image.name ? `贴图已选中 · ${image.name}` : "贴图已选中";
+  els.selectionHint.classList.remove("hidden");
+}
+
 function imageEventsTopFirst() {
   return state.events.filter((event) => event.type === "image").slice().reverse();
 }
@@ -512,6 +622,16 @@ function hitImageAt(screen) {
     if (inBody) return { image, mode: "move" };
   }
   return null;
+}
+
+function updateBoardHover(screen) {
+  const hit = state.tool === "move" && !state.panInteraction && !state.imageInteraction ? hitImageAt(screen) : null;
+  els.canvasWrap.classList.toggle("can-grab-image", hit?.mode === "move");
+  els.canvasWrap.classList.toggle("can-resize-image", hit?.mode === "resize");
+}
+
+function clearBoardHover() {
+  els.canvasWrap.classList.remove("can-grab-image", "can-resize-image");
 }
 
 function applyImageUpdate(event) {
@@ -612,12 +732,14 @@ async function joinRoom(roomId, password) {
     state.self = data.self;
     state.room = data.room;
     state.events = data.events || [];
+    state.selectedImageId = null;
     els.activeTitle.textContent = data.room.title || "密室";
     updateShareFields();
     showRoom();
     connectEvents();
     renderFiles();
     renderIdentity();
+    updateSelectionHint();
     updateTimer();
     clearInterval(state.timer);
     state.timer = setInterval(updateTimer, 1000);
@@ -828,8 +950,10 @@ function handleDestroyed(data) {
   state.token = null;
   state.self = null;
   state.events = [];
+  state.selectedImageId = null;
   state.cursors.clear();
   renderIdentity();
+  updateSelectionHint();
   els.cursorLayer.innerHTML = "";
   clearInterval(state.timer);
   window.history.pushState(null, "", "/");
@@ -852,6 +976,7 @@ function beginImageInteraction(event, hit, screen, world) {
   const image = hit.image;
   if (image.space !== "world") return;
   state.selectedImageId = image.id;
+  updateSelectionHint();
   state.imageInteraction = {
     pointerId: event.pointerId,
     mode: hit.mode,
@@ -912,6 +1037,43 @@ function finishPan(event) {
   els.canvasWrap.classList.remove("is-panning");
 }
 
+function isTypingTarget(target = document.activeElement) {
+  return ["INPUT", "TEXTAREA", "SELECT"].includes(target?.tagName) || target?.isContentEditable;
+}
+
+function handleBoardShortcut(event) {
+  const key = event.key.toLowerCase();
+  if (key === "escape" && !els.textEditor.classList.contains("hidden")) {
+    closeTextEditor();
+    event.preventDefault();
+    return;
+  }
+  if (!state.roomId || isTypingTarget()) return;
+  if (event.code === "Space") {
+    event.preventDefault();
+    state.isSpacePanning = true;
+    els.canvasWrap.dataset.tool = "move";
+    return;
+  }
+  if (key === "escape") {
+    closeTextEditor();
+    state.selectedImageId = null;
+    updateSelectionHint();
+    scheduleDraw();
+    return;
+  }
+  if (key === "v") setTool("move");
+  else if (key === "p") setTool("pen");
+  else if (key === "e") setTool("eraser");
+  else if (key === "t") setTool("text");
+  else if (key === "+" || key === "=") zoomFromCenter(1.25);
+  else if (key === "-" || key === "_") zoomFromCenter(0.8);
+  else if (key === "0") resetViewport();
+  else if (key === "f") fitToContent();
+  else return;
+  event.preventDefault();
+}
+
 function bindEvents() {
   els.randomPassword.addEventListener("click", () => {
     els.roomPassword.value = makePassword();
@@ -946,6 +1108,11 @@ function bindEvents() {
     state.size = Number(els.brushSize.value);
   });
 
+  els.zoomOut.addEventListener("click", () => zoomFromCenter(0.8));
+  els.zoomIn.addEventListener("click", () => zoomFromCenter(1.25));
+  els.zoomReset.addEventListener("click", resetViewport);
+  els.zoomFit.addEventListener("click", fitToContent);
+
   els.copyInvite.addEventListener("click", copyInvite);
   els.shareButton.addEventListener("click", copyInvite);
 
@@ -972,6 +1139,7 @@ function bindEvents() {
       if (hit) beginImageInteraction(event, hit, screen, point);
       else {
         state.selectedImageId = null;
+        updateSelectionHint();
         scheduleDraw();
         beginPan(event, screen);
       }
@@ -1003,6 +1171,8 @@ function bindEvents() {
     const screen = toScreenPoint(event);
     const point = rememberBoardPoint(screenToWorld(screen));
     sendCursor(point);
+
+    updateBoardHover(screen);
 
     if (state.panInteraction) {
       panBy(screen.x - state.panInteraction.last.x, screen.y - state.panInteraction.last.y);
@@ -1044,8 +1214,11 @@ function bindEvents() {
     if (state.imageInteraction) finishImageInteraction(event);
     if (state.panInteraction) finishPan(event);
     state.currentStroke = null;
+    clearBoardHover();
     scheduleDraw();
   });
+
+  els.board.addEventListener("pointerleave", clearBoardHover);
 
   els.canvasWrap.addEventListener("wheel", (event) => {
     if (!state.roomId) return;
@@ -1145,13 +1318,7 @@ function bindEvents() {
     }
   });
 
-  window.addEventListener("keydown", (event) => {
-    if (event.code === "Space" && state.roomId && !["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) {
-      event.preventDefault();
-      state.isSpacePanning = true;
-      els.canvasWrap.dataset.tool = "move";
-    }
-  });
+  window.addEventListener("keydown", handleBoardShortcut);
 
   window.addEventListener("keyup", (event) => {
     if (event.code === "Space") {
