@@ -70,6 +70,8 @@ const state = {
 };
 
 const ctx = els.board.getContext("2d");
+const handwritingFont =
+  '"Hannotate SC", "HanziPen SC", "Kaiti SC", STKaiti, KaiTi, "Comic Sans MS", "Bradley Hand", cursive';
 
 function makePassword() {
   const words = ["moon", "paper", "mint", "river", "room", "warm", "quiet", "blue"];
@@ -396,7 +398,7 @@ function drawText(item) {
   const y = screen.y;
   const fontSize = Math.max(10, Math.min(48, (item.size || 20) * (item.space === "world" ? state.viewport.scale : 1)));
   ctx.save();
-  ctx.font = `700 ${fontSize}px Inter, ui-sans-serif, system-ui, sans-serif`;
+  ctx.font = `700 ${fontSize}px ${handwritingFont}`;
   ctx.textBaseline = "top";
   ctx.fillStyle = item.color || "#252525";
   const lines = wrapLines(item.text, Math.max(80, Math.min(300, width - x - 18)));
