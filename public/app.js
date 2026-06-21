@@ -939,7 +939,7 @@ async function joinRoom(roomId, password) {
 }
 
 function renderPresence(members) {
-  els.presenceCount.textContent = `${members.length} 在线`;
+  els.presenceCount.textContent = `${members.length}/2 在线`;
   els.presenceList.innerHTML = "";
   for (const member of members) {
     const item = document.createElement("div");

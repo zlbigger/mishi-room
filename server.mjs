@@ -9,6 +9,8 @@ const publicDir = join(__dirname, "public");
 const port = Number(process.env.PORT || 4173);
 const maxBodyBytes = 9 * 1024 * 1024;
 const maxStoredEvents = 900;
+const maxRoomMembers = 2;
+const sessionHoldMs = 10000;
 const rooms = new Map();
 
 const mimeTypes = {
@@ -108,6 +110,33 @@ function getRoom(id) {
 function getSession(room, token) {
   if (!token) return null;
   return room.sessions.get(token) || null;
+}
+
+function pruneDetachedSessions(room, now = Date.now()) {
+  for (const [token, session] of room.sessions) {
+    if (room.clients.has(token)) continue;
+    const recentlyJoined = now - session.joinedAt < sessionHoldMs;
+    const recentlySeen = now - session.lastSeen < sessionHoldMs;
+    if (!recentlyJoined && !recentlySeen) {
+      room.sessions.delete(token);
+    }
+  }
+}
+
+function occupiedSessionCount(room, now = Date.now(), exceptToken = null) {
+  pruneDetachedSessions(room, now);
+  let count = 0;
+  for (const [token, session] of room.sessions) {
+    if (token === exceptToken) continue;
+    if (room.clients.has(token) || now - session.joinedAt < sessionHoldMs || now - session.lastSeen < sessionHoldMs) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function roomIsFull(room, exceptToken = null) {
+  return occupiedSessionCount(room, Date.now(), exceptToken) >= maxRoomMembers;
 }
 
 function sendSse(client, event, data) {
@@ -299,6 +328,11 @@ async function handleApi(req, res) {
           json(res, 401, { error: "unauthorized", message: "请先输入房间口令。" });
           return;
         }
+        if (roomIsFull(room, token)) {
+          room.sessions.delete(token);
+          json(res, 409, { error: "room_full", message: "这间密室已经有 2 个人了，暂时不能再进入。" });
+          return;
+        }
 
         res.writeHead(200, {
           "content-type": "text/event-stream; charset=utf-8",
@@ -335,9 +369,13 @@ async function handleApi(req, res) {
           json(res, 403, { error: "forbidden", message: "口令不正确。" });
           return;
         }
+        if (roomIsFull(room)) {
+          json(res, 409, { error: "room_full", message: "这间密室已经有 2 个人了，暂时不能再进入。" });
+          return;
+        }
 
         const token = makeId(18);
-        const sessionIndex = room.sessions.size;
+        const sessionIndex = occupiedSessionCount(room);
         const session = {
           id: makeId(6),
           token,

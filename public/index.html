@@ -9,7 +9,7 @@
     />
     <title>密室 - 会消失的双人互动房间</title>
     <link rel="stylesheet" href="https://unpkg.com/@excalidraw/excalidraw@0.18.1/dist/prod/index.css" />
-    <link rel="stylesheet" href="/styles.css?v=15" />
+    <link rel="stylesheet" href="/styles.css?v=16" />
     <script type="importmap">
       {
         "imports": {
@@ -27,9 +27,10 @@
         <div class="lobby-copy">
           <p class="eyebrow">One link. One room. Gone when done.</p>
           <h1>密室</h1>
-          <p class="lead">给某个人发一个链接，进入一间只属于你们的临时空间。能写、能画、能贴图，聊完就销毁。</p>
+          <p class="lead">给某个人发一个链接，进入一间只属于你们两个人的临时空间。能写、能画、能贴图，聊完就销毁。</p>
           <div class="promise-row" aria-label="产品特点">
             <span>免注册</span>
+            <span>只限两人</span>
             <span>复制链接邀请</span>
             <span>一起涂鸦贴图</span>
             <span>一键销毁</span>
@@ -210,7 +211,7 @@
             <section class="panel-section">
               <div class="section-head">
                 <h3>邀请</h3>
-                <span id="presence-count" class="count">0 在线</span>
+                <span id="presence-count" class="count">0/2 在线</span>
               </div>
               <div class="identity-card identity-row hidden">
                 <span>我的代号</span>
@@ -265,6 +266,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=15" type="module"></script>
+    <script src="/app.js?v=16" type="module"></script>
   </body>
 </html>
