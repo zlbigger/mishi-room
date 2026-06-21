@@ -96,7 +96,9 @@ const modePresets = {
 const excalidrawState = {
   api: null,
   applyingRemoteScene: false,
+  canPostScene: false,
   postTimer: null,
+  readyTimer: null,
   lastPostedHash: "",
   latestSceneAt: 0,
   files: {}
@@ -441,6 +443,28 @@ function mergeSceneFiles(files = {}) {
   return excalidrawState.files;
 }
 
+function resetExcalidrawSyncForRoom() {
+  clearTimeout(excalidrawState.postTimer);
+  clearTimeout(excalidrawState.readyTimer);
+  excalidrawState.applyingRemoteScene = true;
+  excalidrawState.canPostScene = false;
+  excalidrawState.lastPostedHash = "";
+  excalidrawState.latestSceneAt = 0;
+  excalidrawState.files = {};
+}
+
+function armScenePosting() {
+  clearTimeout(excalidrawState.readyTimer);
+  excalidrawState.readyTimer = setTimeout(() => {
+    const scene = latestSceneEvent();
+    if (!scene) {
+      excalidrawState.lastPostedHash = sceneHash([], {});
+    }
+    excalidrawState.applyingRemoteScene = false;
+    excalidrawState.canPostScene = true;
+  }, 900);
+}
+
 function applyRemoteScene(event) {
   if (!excalidrawState.api || !event || (event.createdAt || 0) < excalidrawState.latestSceneAt) return;
   const scene = scenePayloadFrom(event);
@@ -475,7 +499,7 @@ function sceneHash(elements, files) {
 }
 
 function scheduleScenePost(elements, appState, files) {
-  if (!state.roomId || !state.token || excalidrawState.applyingRemoteScene) return;
+  if (!state.roomId || !state.token || excalidrawState.applyingRemoteScene || !excalidrawState.canPostScene) return;
   const mergedFiles = mergeSceneFiles(files);
   const hash = sceneHash(elements, mergedFiles);
   if (hash === excalidrawState.lastPostedHash) return;
@@ -507,6 +531,7 @@ async function mountExcalidrawBoard() {
         excalidrawAPI: (api) => {
           excalidrawState.api = api;
           applyRemoteScene(latestSceneEvent());
+          armScenePosting();
         },
         initialData: {
           appState: {
@@ -894,7 +919,9 @@ async function joinRoom(roomId, password) {
     state.room = data.room;
     state.events = data.events || [];
     state.selectedImageId = null;
+    resetExcalidrawSyncForRoom();
     applyRemoteScene(latestSceneEvent());
+    armScenePosting();
     els.activeTitle.textContent = data.room.title || "密室";
     updateShareFields();
     showRoom();

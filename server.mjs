@@ -151,6 +151,10 @@ function mergeSceneFiles(previousEvent, nextEvent) {
   };
 }
 
+function sceneHasContent(scene) {
+  return scene.elements.length > 0 || Object.keys(scene.files).length > 0;
+}
+
 function pruneEvents(room) {
   if (room.events.length > maxStoredEvents) {
     room.events.splice(0, room.events.length - maxStoredEvents);
@@ -397,6 +401,11 @@ async function handleApi(req, res) {
         } else if (type === "scene") {
           const previousScene = room.events.find((item) => item.type === "scene");
           const scene = sceneDataFrom(payload);
+          const joinedRecently = payload.createdAt - session.joinedAt < 3000;
+          if (joinedRecently && sceneHasContent(sceneDataFrom(previousScene)) && !sceneHasContent(scene)) {
+            json(res, 202, { ok: true, id: payload.id, ignored: "initial_empty_scene" });
+            return;
+          }
           payload.elements = scene.elements;
           payload.appState = scene.appState;
           payload.files = mergeSceneFiles(previousScene, payload);
