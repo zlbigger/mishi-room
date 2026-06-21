@@ -1,7 +1,7 @@
 {
   "name": "mishi-room",
   "private": true,
-  "version": "0.3.3",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "dev": "node --watch server.mjs",

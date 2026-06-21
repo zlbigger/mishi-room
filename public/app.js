@@ -23,6 +23,7 @@ const els = {
   destroyDialog: $("#destroy-dialog"),
   confirmDestroy: $("#confirm-destroy"),
   canvasWrap: $("#canvas-wrap"),
+  excalidrawBoard: $("#excalidraw-board"),
   board: $("#board"),
   zoomLevel: $("#zoom-level"),
   zoomOut: $("#zoom-out"),
@@ -78,6 +79,13 @@ const state = {
 const ctx = els.board.getContext("2d");
 const handwritingFont =
   '"Hannotate SC", "HanziPen SC", "Kaiti SC", STKaiti, KaiTi, "Comic Sans MS", "Bradley Hand", cursive';
+const excalidrawState = {
+  api: null,
+  applyingRemoteScene: false,
+  postTimer: null,
+  lastPostedHash: "",
+  latestSceneAt: 0
+};
 
 function makePassword() {
   const words = ["moon", "paper", "mint", "river", "room", "warm", "quiet", "blue"];
@@ -132,6 +140,7 @@ function showLobby(message = "") {
 function showRoom() {
   els.lobby.classList.add("hidden");
   els.room.classList.remove("hidden");
+  mountExcalidrawBoard();
   resizeCanvas();
 }
 
@@ -379,6 +388,109 @@ function updateZoomHud() {
   els.zoomLevel.textContent = `${Math.round(state.viewport.scale * 100)}%`;
 }
 
+function latestSceneEvent() {
+  return state.events
+    .filter((event) => event.type === "scene")
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+    .at(-1) || null;
+}
+
+function scenePayloadFrom(event) {
+  if (!event) return null;
+  return {
+    elements: Array.isArray(event.elements) ? event.elements : [],
+    appState: event.appState && typeof event.appState === "object" ? event.appState : {},
+    files: event.files && typeof event.files === "object" ? event.files : {}
+  };
+}
+
+function applyRemoteScene(event) {
+  if (!excalidrawState.api || !event || (event.createdAt || 0) < excalidrawState.latestSceneAt) return;
+  const scene = scenePayloadFrom(event);
+  if (!scene) return;
+  excalidrawState.latestSceneAt = event.createdAt || Date.now();
+  excalidrawState.applyingRemoteScene = true;
+  if (scene.files && typeof excalidrawState.api.addFiles === "function") {
+    excalidrawState.api.addFiles(Object.values(scene.files));
+  }
+  excalidrawState.api.updateScene({
+    elements: scene.elements,
+    appState: {
+      viewBackgroundColor: "#fffdf7",
+      ...scene.appState
+    }
+  });
+  requestAnimationFrame(() => {
+    excalidrawState.applyingRemoteScene = false;
+  });
+}
+
+function sceneHash(elements, files) {
+  return JSON.stringify({
+    elements: elements.map((element) => [element.id, element.version, element.versionNonce, element.updated]),
+    files: Object.keys(files || {}).sort()
+  });
+}
+
+function scheduleScenePost(elements, appState, files) {
+  if (!state.roomId || !state.token || excalidrawState.applyingRemoteScene) return;
+  const hash = sceneHash(elements, files);
+  if (hash === excalidrawState.lastPostedHash) return;
+  excalidrawState.lastPostedHash = hash;
+  clearTimeout(excalidrawState.postTimer);
+  excalidrawState.postTimer = setTimeout(() => {
+    postEvent({
+      type: "scene",
+      elements,
+      appState: {
+        viewBackgroundColor: appState.viewBackgroundColor || "#fffdf7"
+      },
+      files: files || {}
+    });
+  }, 450);
+}
+
+async function mountExcalidrawBoard() {
+  if (!els.excalidrawBoard || excalidrawState.api) return;
+  try {
+    const [{ default: React }, { createRoot }, excalidraw] = await Promise.all([
+      import("https://esm.sh/react@18.3.1"),
+      import("https://esm.sh/react-dom@18.3.1/client"),
+      import("https://esm.sh/@excalidraw/excalidraw@0.18.1?external=react,react-dom")
+    ]);
+    const root = createRoot(els.excalidrawBoard);
+    root.render(
+      React.createElement(excalidraw.Excalidraw, {
+        excalidrawAPI: (api) => {
+          excalidrawState.api = api;
+          applyRemoteScene(latestSceneEvent());
+        },
+        initialData: {
+          appState: {
+            viewBackgroundColor: "#fffdf7"
+          }
+        },
+        langCode: "zh-CN",
+        name: "密室白板",
+        onChange: (elements, appState, files) => scheduleScenePost(elements, appState, files),
+        UIOptions: {
+          canvasActions: {
+            export: false,
+            loadScene: false,
+            saveAsImage: true,
+            saveToActiveFile: false,
+            toggleTheme: false
+          }
+        }
+      })
+    );
+  } catch (error) {
+    console.error(error);
+    els.excalidrawBoard.innerHTML = '<div class="board-loading">白板加载失败，请刷新重试</div>';
+    toast("白板加载失败，请刷新重试。");
+  }
+}
+
 function scheduleDraw() {
   if (state.drawFrame) return;
   state.drawFrame = requestAnimationFrame(() => {
@@ -575,6 +687,12 @@ function drawSelectedImage() {
 }
 
 function appendEvent(event) {
+  if (event.type === "scene") {
+    state.events = state.events.filter((item) => item.type !== "scene");
+    state.events.push(event);
+    applyRemoteScene(event);
+    return;
+  }
   if (event.type === "image-update") {
     applyImageUpdate(event);
     return;
@@ -682,7 +800,7 @@ function connectEvents() {
     scheduleDraw();
   });
 
-  for (const type of ["stroke", "text", "image", "image-update", "file"]) {
+  for (const type of ["stroke", "text", "image", "image-update", "file", "scene"]) {
     source.addEventListener(type, (event) => appendEvent(JSON.parse(event.data)));
   }
 
@@ -733,6 +851,7 @@ async function joinRoom(roomId, password) {
     state.room = data.room;
     state.events = data.events || [];
     state.selectedImageId = null;
+    applyRemoteScene(latestSceneEvent());
     els.activeTitle.textContent = data.room.title || "密室";
     updateShareFields();
     showRoom();
@@ -951,6 +1070,16 @@ function handleDestroyed(data) {
   state.self = null;
   state.events = [];
   state.selectedImageId = null;
+  excalidrawState.latestSceneAt = 0;
+  excalidrawState.lastPostedHash = "";
+  if (excalidrawState.api) {
+    excalidrawState.api.updateScene({
+      elements: [],
+      appState: {
+        viewBackgroundColor: "#fffdf7"
+      }
+    });
+  }
   state.cursors.clear();
   renderIdentity();
   updateSelectionHint();

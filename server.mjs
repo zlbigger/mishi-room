@@ -348,7 +348,7 @@ async function handleApi(req, res) {
 
         const event = body.event || {};
         const type = sanitizeText(event.type);
-        if (!["stroke", "text", "image", "image-update", "file", "cursor"].includes(type)) {
+        if (!["stroke", "text", "image", "image-update", "file", "cursor", "scene"].includes(type)) {
           badRequest(res, "不支持的事件类型。");
           return;
         }
@@ -378,6 +378,9 @@ async function handleApi(req, res) {
           }
           target.updatedAt = payload.createdAt;
           target.updatedBy = payload.actor;
+        } else if (type === "scene") {
+          room.events = room.events.filter((item) => item.type !== "scene");
+          room.events.push(payload);
         } else if (type !== "cursor") {
           room.events.push(payload);
           pruneEvents(room);

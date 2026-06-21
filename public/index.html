@@ -8,7 +8,18 @@
       content="密室是一个给两个人使用的临时互动房间：分享链接和口令，一起写、画、贴图、传文件，结束后销毁。"
     />
     <title>密室 - 会消失的双人互动房间</title>
-    <link rel="stylesheet" href="/styles.css?v=11" />
+    <link rel="stylesheet" href="https://unpkg.com/@excalidraw/excalidraw@0.18.1/dist/prod/index.css" />
+    <link rel="stylesheet" href="/styles.css?v=12" />
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/react@18.3.1",
+          "react-dom": "https://esm.sh/react-dom@18.3.1",
+          "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+          "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="app">
@@ -136,7 +147,10 @@
           </nav>
 
           <div id="canvas-wrap" class="canvas-wrap">
-            <canvas id="board" aria-label="共享画板"></canvas>
+            <div id="excalidraw-board" class="excalidraw-board" aria-label="共享白板">
+              <div class="board-loading">正在打开白板</div>
+            </div>
+            <canvas id="board" class="hidden" aria-label="旧版共享画板"></canvas>
             <div class="zoom-controls" aria-label="画布缩放">
               <button id="zoom-out" type="button" title="缩小" aria-label="缩小">−</button>
               <button id="zoom-reset" class="zoom-percent" type="button" title="重置缩放" aria-label="重置缩放">
@@ -216,6 +230,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=11" type="module"></script>
+    <script src="/app.js?v=12" type="module"></script>
   </body>
 </html>
