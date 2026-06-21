@@ -9,7 +9,7 @@
     />
     <title>密室 - 会消失的双人互动房间</title>
     <link rel="stylesheet" href="https://unpkg.com/@excalidraw/excalidraw@0.18.1/dist/prod/index.css" />
-    <link rel="stylesheet" href="/styles.css?v=13" />
+    <link rel="stylesheet" href="/styles.css?v=14" />
     <script type="importmap">
       {
         "imports": {
@@ -25,25 +25,44 @@
     <div id="app">
       <section id="lobby" class="lobby">
         <div class="lobby-copy">
-          <p class="eyebrow">Mishi Room</p>
+          <p class="eyebrow">One link. One room. Gone when done.</p>
           <h1>密室</h1>
-          <p class="lead">发一个链接，和对方进入一间会消失的房间。写点秘密，画点心情，贴张图，然后让它消失。</p>
+          <p class="lead">给某个人发一个链接，进入一间只属于你们的临时空间。能写、能画、能贴图，聊完就销毁。</p>
           <div class="promise-row" aria-label="产品特点">
             <span>免注册</span>
-            <span>口令进入</span>
-            <span>随时销毁</span>
+            <span>复制链接邀请</span>
+            <span>一起涂鸦贴图</span>
+            <span>一键销毁</span>
+          </div>
+          <div class="scenario-grid" aria-label="密室适用场景">
+            <article class="scenario-card scenario-love">
+              <span class="scenario-mark">01</span>
+              <h2>情侣密室</h2>
+              <p>异地晚安、纪念日惊喜、只给对方看的贴图和手写话。</p>
+            </article>
+            <article class="scenario-card scenario-ice">
+              <span class="scenario-mark">02</span>
+              <h2>陌生人破冰</h2>
+              <p>不用加好友，先用一张白板交换今天的心情和小秘密。</p>
+            </article>
+            <article class="scenario-card scenario-work">
+              <span class="scenario-mark">03</span>
+              <h2>临时协作</h2>
+              <p>讲题、对稿、圈图、传附件，开完即走，不留下复杂工作流。</p>
+            </article>
           </div>
           <div class="lobby-showcase" aria-hidden="true">
             <div class="mini-board">
               <span class="mini-pin"></span>
               <span class="mini-line line-a"></span>
               <span class="mini-line line-b"></span>
-              <span class="mini-bubble bubble-a">hi</span>
-              <span class="mini-bubble bubble-b">贴一张图</span>
+              <span class="mini-bubble bubble-a">今晚见</span>
+              <span class="mini-bubble bubble-b">把想法圈出来</span>
               <span class="mini-photo"></span>
+              <span class="mini-note">3 分钟后，也可以让它消失</span>
             </div>
             <div class="mini-ticket">
-              <span>mishi.link/8F7K</span>
+              <span>room code</span>
               <strong>moon-2941</strong>
             </div>
           </div>
@@ -51,13 +70,14 @@
 
         <form id="create-form" class="entry-panel" autocomplete="off">
           <div class="form-head">
-            <h2>创建密室</h2>
-            <p>复制链接和口令给任何人，对方就能进入同一个临时空间。</p>
+            <span class="panel-kicker">Create a private room</span>
+            <h2>选择一间密室</h2>
+            <p>选一个场景，系统会生成链接和口令。对方打开后直接进入同一块白板。</p>
           </div>
 
           <label>
             房间名称
-            <input id="room-title" name="title" maxlength="32" value="今晚的密室" />
+            <input id="room-title" name="title" maxlength="32" value="今晚的双人密室" />
           </label>
 
           <label>
@@ -70,10 +90,25 @@
 
           <fieldset>
             <legend>房间氛围</legend>
-            <div class="segmented">
-              <label><input type="radio" name="mode" value="intimate" checked />亲密</label>
-              <label><input type="radio" name="mode" value="stranger" />陌生人</label>
-              <label><input type="radio" name="mode" value="work" />协作</label>
+            <div class="mode-cards">
+              <label>
+                <input type="radio" name="mode" value="intimate" checked />
+                <span class="mode-icon">♡</span>
+                <strong>情侣密室</strong>
+                <small>写晚安、贴照片、留一句只给对方看的话。</small>
+              </label>
+              <label>
+                <input type="radio" name="mode" value="stranger" />
+                <span class="mode-icon">?</span>
+                <strong>陌生人破冰</strong>
+                <small>不用加好友，用涂鸦和问题先聊三分钟。</small>
+              </label>
+              <label>
+                <input type="radio" name="mode" value="work" />
+                <span class="mode-icon">↗</span>
+                <strong>临时协作</strong>
+                <small>讲题、圈图、同步想法，结束后清场。</small>
+              </label>
             </div>
           </fieldset>
 
@@ -87,7 +122,7 @@
           </fieldset>
 
           <p id="create-error" class="field-error" role="alert"></p>
-          <button class="primary-action" type="submit">开启密室</button>
+          <button class="primary-action" type="submit">生成密室链接</button>
         </form>
 
         <form id="join-form" class="entry-panel hidden" autocomplete="off">
@@ -230,6 +265,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=13" type="module"></script>
+    <script src="/app.js?v=14" type="module"></script>
   </body>
 </html>

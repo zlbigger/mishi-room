@@ -79,6 +79,20 @@ const state = {
 const ctx = els.board.getContext("2d");
 const handwritingFont =
   '"Hannotate SC", "HanziPen SC", "Kaiti SC", STKaiti, KaiTi, "Comic Sans MS", "Bradley Hand", cursive';
+const modePresets = {
+  intimate: {
+    title: "今晚的双人密室",
+    passwordHint: "moon-2941"
+  },
+  stranger: {
+    title: "三分钟破冰密室",
+    passwordHint: "hello-2049"
+  },
+  work: {
+    title: "临时协作密室",
+    passwordHint: "sync-1024"
+  }
+};
 const excalidrawState = {
   api: null,
   applyingRemoteScene: false,
@@ -92,6 +106,17 @@ function makePassword() {
   const words = ["moon", "paper", "mint", "river", "room", "warm", "quiet", "blue"];
   const word = words[Math.floor(Math.random() * words.length)];
   return `${word}-${Math.floor(1000 + Math.random() * 9000)}`;
+}
+
+function applyModePreset(mode) {
+  const preset = modePresets[mode];
+  if (!preset) return;
+  if (!els.roomTitle.value || Object.values(modePresets).some((item) => item.title === els.roomTitle.value)) {
+    els.roomTitle.value = preset.title;
+  }
+  if (!els.roomPassword.value || Object.values(modePresets).some((item) => item.passwordHint === els.roomPassword.value)) {
+    els.roomPassword.value = preset.passwordHint;
+  }
 }
 
 function setError(target, message = "") {
@@ -1222,6 +1247,10 @@ function handleBoardShortcut(event) {
 }
 
 function bindEvents() {
+  $$('input[name="mode"]').forEach((input) => {
+    input.addEventListener("change", () => applyModePreset(input.value));
+  });
+
   els.randomPassword.addEventListener("click", () => {
     els.roomPassword.value = makePassword();
   });
@@ -1479,7 +1508,7 @@ function bindEvents() {
 }
 
 function init() {
-  els.roomPassword.value = makePassword();
+  applyModePreset(document.querySelector('input[name="mode"]:checked')?.value || "intimate");
   bindEvents();
   updateZoomHud();
   els.canvasWrap.dataset.tool = state.tool;
