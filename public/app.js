@@ -84,7 +84,8 @@ const excalidrawState = {
   applyingRemoteScene: false,
   postTimer: null,
   lastPostedHash: "",
-  latestSceneAt: 0
+  latestSceneAt: 0,
+  files: {}
 };
 
 function makePassword() {
@@ -397,11 +398,22 @@ function latestSceneEvent() {
 
 function scenePayloadFrom(event) {
   if (!event) return null;
+  const source = event.payload && typeof event.payload === "object" ? event.payload : event;
   return {
-    elements: Array.isArray(event.elements) ? event.elements : [],
-    appState: event.appState && typeof event.appState === "object" ? event.appState : {},
-    files: event.files && typeof event.files === "object" ? event.files : {}
+    elements: Array.isArray(source.elements) ? source.elements : [],
+    appState: source.appState && typeof source.appState === "object" ? source.appState : {},
+    files: source.files && typeof source.files === "object" ? source.files : {}
   };
+}
+
+function mergeSceneFiles(files = {}) {
+  if (!files || typeof files !== "object") return excalidrawState.files;
+  for (const [id, file] of Object.entries(files)) {
+    if (file && typeof file === "object") {
+      excalidrawState.files[id] = file;
+    }
+  }
+  return excalidrawState.files;
 }
 
 function applyRemoteScene(event) {
@@ -410,31 +422,37 @@ function applyRemoteScene(event) {
   if (!scene) return;
   excalidrawState.latestSceneAt = event.createdAt || Date.now();
   excalidrawState.applyingRemoteScene = true;
-  if (scene.files && typeof excalidrawState.api.addFiles === "function") {
-    excalidrawState.api.addFiles(Object.values(scene.files));
+  const files = mergeSceneFiles(scene.files);
+  excalidrawState.lastPostedHash = sceneHash(scene.elements, files);
+  if (Object.keys(files).length && typeof excalidrawState.api.addFiles === "function") {
+    excalidrawState.api.addFiles(Object.values(files));
   }
   excalidrawState.api.updateScene({
     elements: scene.elements,
     appState: {
       viewBackgroundColor: "#fffdf7",
       ...scene.appState
-    }
+    },
+    files
   });
-  requestAnimationFrame(() => {
+  setTimeout(() => {
     excalidrawState.applyingRemoteScene = false;
-  });
+  }, 160);
 }
 
 function sceneHash(elements, files) {
   return JSON.stringify({
     elements: elements.map((element) => [element.id, element.version, element.versionNonce, element.updated]),
-    files: Object.keys(files || {}).sort()
+    files: Object.entries(files || {})
+      .map(([id, file]) => [id, file?.id, file?.mimeType, file?.created, file?.dataURL?.length])
+      .sort((a, b) => a[0].localeCompare(b[0]))
   });
 }
 
 function scheduleScenePost(elements, appState, files) {
   if (!state.roomId || !state.token || excalidrawState.applyingRemoteScene) return;
-  const hash = sceneHash(elements, files);
+  const mergedFiles = mergeSceneFiles(files);
+  const hash = sceneHash(elements, mergedFiles);
   if (hash === excalidrawState.lastPostedHash) return;
   excalidrawState.lastPostedHash = hash;
   clearTimeout(excalidrawState.postTimer);
@@ -445,7 +463,7 @@ function scheduleScenePost(elements, appState, files) {
       appState: {
         viewBackgroundColor: appState.viewBackgroundColor || "#fffdf7"
       },
-      files: files || {}
+      files: mergedFiles
     });
   }, 450);
 }

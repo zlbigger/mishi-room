@@ -135,6 +135,22 @@ function broadcastPresence(room) {
   broadcast(room, "presence", { members });
 }
 
+function sceneDataFrom(event) {
+  const source = event?.payload && typeof event.payload === "object" ? event.payload : event || {};
+  return {
+    elements: Array.isArray(source.elements) ? source.elements : [],
+    appState: source.appState && typeof source.appState === "object" ? source.appState : {},
+    files: source.files && typeof source.files === "object" ? source.files : {}
+  };
+}
+
+function mergeSceneFiles(previousEvent, nextEvent) {
+  return {
+    ...sceneDataFrom(previousEvent).files,
+    ...sceneDataFrom(nextEvent).files
+  };
+}
+
 function pruneEvents(room) {
   if (room.events.length > maxStoredEvents) {
     room.events.splice(0, room.events.length - maxStoredEvents);
@@ -379,6 +395,12 @@ async function handleApi(req, res) {
           target.updatedAt = payload.createdAt;
           target.updatedBy = payload.actor;
         } else if (type === "scene") {
+          const previousScene = room.events.find((item) => item.type === "scene");
+          const scene = sceneDataFrom(payload);
+          payload.elements = scene.elements;
+          payload.appState = scene.appState;
+          payload.files = mergeSceneFiles(previousScene, payload);
+          delete payload.payload;
           room.events = room.events.filter((item) => item.type !== "scene");
           room.events.push(payload);
         } else if (type !== "cursor") {
