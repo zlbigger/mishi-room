@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const publicDir = join(__dirname, "public");
 const port = Number(process.env.PORT || 4173);
-const maxBodyBytes = 9 * 1024 * 1024;
+const maxBodyBytes = 20 * 1024 * 1024;
 const maxStoredEvents = 900;
 const maxRoomMembers = 2;
 const sessionHoldMs = 10000;
@@ -178,6 +178,29 @@ function mergeSceneFiles(previousEvent, nextEvent) {
     ...sceneDataFrom(previousEvent).files,
     ...sceneDataFrom(nextEvent).files
   };
+}
+
+function elementVersionScore(element) {
+  return Number(element?.version || 0) * 1_000_000_000 + Number(element?.updated || 0);
+}
+
+function mergeSceneElements(previousEvent, nextEvent) {
+  const previous = sceneDataFrom(previousEvent).elements;
+  const next = sceneDataFrom(nextEvent).elements;
+  if (!next.length && previous.length) return previous;
+
+  const merged = new Map();
+  for (const element of previous) {
+    if (element?.id) merged.set(element.id, element);
+  }
+  for (const element of next) {
+    if (!element?.id) continue;
+    const current = merged.get(element.id);
+    if (!current || elementVersionScore(element) >= elementVersionScore(current)) {
+      merged.set(element.id, element);
+    }
+  }
+  return [...merged.values()];
 }
 
 function sceneHasContent(scene) {
@@ -364,6 +387,23 @@ async function handleApi(req, res) {
 
       if (req.method === "POST" && parts[3] === "join") {
         const body = await readBody(req);
+        const resumeToken = sanitizeText(body.token);
+        const existingSession = getSession(room, resumeToken);
+        if (existingSession) {
+          if (roomIsFull(room, resumeToken)) {
+            json(res, 409, { error: "room_full", message: "这间密室已经有 2 个人了，暂时不能再进入。" });
+            return;
+          }
+          existingSession.lastSeen = Date.now();
+          json(res, 200, {
+            token: resumeToken,
+            self: existingSession,
+            room: roomSummary(room),
+            events: room.events
+          });
+          return;
+        }
+
         const password = sanitizeText(body.password);
         if (!verifyPassword(password, room)) {
           json(res, 403, { error: "forbidden", message: "口令不正确。" });
@@ -439,12 +479,12 @@ async function handleApi(req, res) {
         } else if (type === "scene") {
           const previousScene = room.events.find((item) => item.type === "scene");
           const scene = sceneDataFrom(payload);
-          const joinedRecently = payload.createdAt - session.joinedAt < 3000;
+          const joinedRecently = payload.createdAt - session.joinedAt < 15000;
           if (joinedRecently && sceneHasContent(sceneDataFrom(previousScene)) && !sceneHasContent(scene)) {
             json(res, 202, { ok: true, id: payload.id, ignored: "initial_empty_scene" });
             return;
           }
-          payload.elements = scene.elements;
+          payload.elements = mergeSceneElements(previousScene, payload);
           payload.appState = scene.appState;
           payload.files = mergeSceneFiles(previousScene, payload);
           delete payload.payload;

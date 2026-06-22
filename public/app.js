@@ -97,6 +97,7 @@ const excalidrawState = {
   api: null,
   applyingRemoteScene: false,
   canPostScene: false,
+  hasUserEdited: false,
   postTimer: null,
   readyTimer: null,
   chromeObserver: null,
@@ -171,6 +172,35 @@ function showRoom() {
   els.room.classList.remove("hidden");
   mountExcalidrawBoard();
   resizeCanvas();
+}
+
+function roomSessionKey(roomId) {
+  return `mishi-room-session:${roomId}`;
+}
+
+function saveRoomSession(roomId, password, token) {
+  try {
+    localStorage.setItem(roomSessionKey(roomId), JSON.stringify({ password, token, savedAt: Date.now() }));
+  } catch {
+    // Local storage is a convenience for refresh recovery; ignore unavailable storage.
+  }
+}
+
+function loadRoomSession(roomId) {
+  try {
+    return JSON.parse(localStorage.getItem(roomSessionKey(roomId)) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function clearRoomSession(roomId = state.roomId) {
+  if (!roomId) return;
+  try {
+    localStorage.removeItem(roomSessionKey(roomId));
+  } catch {
+    // Ignore storage cleanup failures.
+  }
 }
 
 function formatBytes(bytes) {
@@ -449,6 +479,7 @@ function resetExcalidrawSyncForRoom() {
   clearTimeout(excalidrawState.readyTimer);
   excalidrawState.applyingRemoteScene = true;
   excalidrawState.canPostScene = false;
+  excalidrawState.hasUserEdited = false;
   excalidrawState.lastPostedHash = "";
   excalidrawState.latestSceneAt = 0;
   excalidrawState.files = {};
@@ -552,9 +583,32 @@ function sceneHash(elements, files) {
   });
 }
 
+function currentExcalidrawFiles(files = {}) {
+  const apiFiles =
+    excalidrawState.api && typeof excalidrawState.api.getFiles === "function" ? excalidrawState.api.getFiles() : {};
+  return mergeSceneFiles({
+    ...(apiFiles || {}),
+    ...(files || {})
+  });
+}
+
+function markBoardEdited() {
+  if (state.roomId && excalidrawState.canPostScene && !excalidrawState.applyingRemoteScene) {
+    excalidrawState.hasUserEdited = true;
+  }
+}
+
 function scheduleScenePost(elements, appState, files) {
-  if (!state.roomId || !state.token || excalidrawState.applyingRemoteScene || !excalidrawState.canPostScene) return;
-  const mergedFiles = mergeSceneFiles(files);
+  if (
+    !state.roomId ||
+    !state.token ||
+    excalidrawState.applyingRemoteScene ||
+    !excalidrawState.canPostScene ||
+    !excalidrawState.hasUserEdited
+  ) {
+    return;
+  }
+  const mergedFiles = currentExcalidrawFiles(files);
   const hash = sceneHash(elements, mergedFiles);
   if (hash === excalidrawState.lastPostedHash) return;
   excalidrawState.lastPostedHash = hash;
@@ -607,6 +661,10 @@ async function mountExcalidrawBoard() {
       })
     );
     watchExcalidrawChrome();
+    els.excalidrawBoard.addEventListener("pointerdown", markBoardEdited, { capture: true });
+    els.excalidrawBoard.addEventListener("keydown", markBoardEdited, { capture: true });
+    els.excalidrawBoard.addEventListener("paste", markBoardEdited, { capture: true });
+    els.excalidrawBoard.addEventListener("drop", markBoardEdited, { capture: true });
   } catch (error) {
     console.error(error);
     els.excalidrawBoard.innerHTML = '<div class="board-loading">白板加载失败，请刷新重试</div>';
@@ -964,9 +1022,9 @@ async function createRoom(form) {
   }
 }
 
-async function joinRoom(roomId, password) {
+async function joinRoom(roomId, password, resumeToken = "") {
   try {
-    const data = await api(`/api/rooms/${roomId}/join`, { password });
+    const data = await api(`/api/rooms/${roomId}/join`, { password, token: resumeToken });
     state.roomId = roomId;
     state.password = password;
     state.token = data.token;
@@ -985,6 +1043,7 @@ async function joinRoom(roomId, password) {
     renderIdentity();
     updateSelectionHint();
     updateTimer();
+    saveRoomSession(roomId, password, data.token);
     clearInterval(state.timer);
     state.timer = setInterval(updateTimer, 1000);
     toast(`你的临时代号：${data.self.name}`);
@@ -1188,6 +1247,7 @@ function sendCursor(point) {
 }
 
 function handleDestroyed(data) {
+  clearRoomSession();
   if (state.source) state.source.close();
   state.source = null;
   state.room = null;
@@ -1589,14 +1649,25 @@ function bindEvents() {
   window.addEventListener("resize", resizeCanvas);
 }
 
-function init() {
+async function init() {
   applyModePreset(document.querySelector('input[name="mode"]:checked')?.value || "intimate");
   bindEvents();
   updateZoomHud();
   els.canvasWrap.dataset.tool = state.tool;
   resizeCanvas();
   const roomId = currentRoomIdFromPath();
-  if (roomId) showJoin(roomId);
+  if (roomId) {
+    const saved = loadRoomSession(roomId);
+    if (saved?.token) {
+      try {
+        await joinRoom(roomId, saved.password || "", saved.token);
+        return;
+      } catch {
+        clearRoomSession(roomId);
+      }
+    }
+    showJoin(roomId);
+  }
 }
 
 init();
