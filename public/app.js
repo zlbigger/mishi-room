@@ -99,12 +99,16 @@ const excalidrawState = {
   canPostScene: false,
   hasUserEdited: false,
   postTimer: null,
+  pendingScene: null,
+  postInFlight: false,
+  lastScenePostAt: 0,
   readyTimer: null,
   chromeObserver: null,
   lastPostedHash: "",
   latestSceneAt: 0,
   files: {}
 };
+const scenePostIntervalMs = 140;
 
 function makePassword() {
   const words = ["moon", "paper", "mint", "river", "room", "warm", "quiet", "blue"];
@@ -477,6 +481,9 @@ function mergeSceneFiles(files = {}) {
 function resetExcalidrawSyncForRoom() {
   clearTimeout(excalidrawState.postTimer);
   clearTimeout(excalidrawState.readyTimer);
+  excalidrawState.pendingScene = null;
+  excalidrawState.postInFlight = false;
+  excalidrawState.lastScenePostAt = 0;
   excalidrawState.applyingRemoteScene = true;
   excalidrawState.canPostScene = false;
   excalidrawState.hasUserEdited = false;
@@ -605,6 +612,35 @@ function markBoardEdited() {
   }
 }
 
+async function flushScenePost() {
+  clearTimeout(excalidrawState.postTimer);
+  excalidrawState.postTimer = null;
+  if (excalidrawState.postInFlight || !excalidrawState.pendingScene) return;
+
+  const payload = excalidrawState.pendingScene;
+  excalidrawState.pendingScene = null;
+  excalidrawState.postInFlight = true;
+  excalidrawState.lastScenePostAt = Date.now();
+  try {
+    await postEvent(payload);
+  } finally {
+    excalidrawState.postInFlight = false;
+    if (excalidrawState.pendingScene) {
+      const wait = Math.max(0, scenePostIntervalMs - (Date.now() - excalidrawState.lastScenePostAt));
+      excalidrawState.postTimer = setTimeout(flushScenePost, wait);
+    }
+  }
+}
+
+function queueScenePost(payload) {
+  excalidrawState.pendingScene = payload;
+  if (excalidrawState.postInFlight) return;
+
+  const wait = Math.max(0, scenePostIntervalMs - (Date.now() - excalidrawState.lastScenePostAt));
+  clearTimeout(excalidrawState.postTimer);
+  excalidrawState.postTimer = setTimeout(flushScenePost, wait);
+}
+
 function scheduleScenePost(elements, appState, files) {
   if (
     !state.roomId ||
@@ -619,17 +655,14 @@ function scheduleScenePost(elements, appState, files) {
   const hash = sceneHash(elements, mergedFiles);
   if (hash === excalidrawState.lastPostedHash) return;
   excalidrawState.lastPostedHash = hash;
-  clearTimeout(excalidrawState.postTimer);
-  excalidrawState.postTimer = setTimeout(() => {
-    postEvent({
-      type: "scene",
-      elements,
-      appState: {
-        viewBackgroundColor: appState.viewBackgroundColor || "#fffdf7"
-      },
-      files: mergedFiles
-    });
-  }, 450);
+  queueScenePost({
+    type: "scene",
+    elements,
+    appState: {
+      viewBackgroundColor: appState.viewBackgroundColor || "#fffdf7"
+    },
+    files: mergedFiles
+  });
 }
 
 async function mountExcalidrawBoard() {
@@ -1262,6 +1295,9 @@ function handleDestroyed(data) {
   clearRoomSession();
   if (state.source) state.source.close();
   state.source = null;
+  clearTimeout(excalidrawState.postTimer);
+  excalidrawState.pendingScene = null;
+  excalidrawState.postInFlight = false;
   state.room = null;
   state.token = null;
   state.self = null;
