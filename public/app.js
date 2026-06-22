@@ -509,13 +509,18 @@ function hideExcalidrawExtraChrome() {
     "Follow us",
     "Discord chat"
   ];
-  const blockedLabels = ["GitHub", "X", "Discord", "素材库"];
+  const blockedLabels = ["GitHub", "X", "Discord", "素材库", "Library"];
+  const blockedFragments = ["素材库", "Library"];
   const selector = [
     '[data-testid="toolbar-frame"]',
     '[data-testid="toolbar-embeddable"]',
     '[data-testid="toolbar-laser"]',
     '[data-testid="library-button"]',
     '[data-testid="library-menu-button"]',
+    '[aria-label*="素材库"]',
+    '[aria-label*="Library"]',
+    '[title*="素材库"]',
+    '[title*="Library"]',
     ".library-button",
     ".App-toolbar__library-button",
     "button",
@@ -532,10 +537,12 @@ function hideExcalidrawExtraChrome() {
       blockedTexts.includes(text) ||
       blockedLabels.includes(aria) ||
       blockedLabels.includes(title) ||
+      blockedFragments.some((fragment) => text.includes(fragment) || aria.includes(fragment) || title.includes(fragment)) ||
       node.matches('[data-testid="toolbar-frame"], [data-testid="toolbar-embeddable"], [data-testid="toolbar-laser"], [data-testid="library-button"], [data-testid="library-menu-button"], .library-button, .App-toolbar__library-button')
     ) {
-      node.hidden = true;
-      node.style.display = "none";
+      const target = node.closest("button, a, [role='button'], [role='menuitem']") || node;
+      target.hidden = true;
+      target.style.display = "none";
     }
   }
 }
