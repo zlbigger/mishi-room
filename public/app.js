@@ -99,6 +99,7 @@ const excalidrawState = {
   canPostScene: false,
   postTimer: null,
   readyTimer: null,
+  chromeObserver: null,
   lastPostedHash: "",
   latestSceneAt: 0,
   files: {}
@@ -465,6 +466,59 @@ function armScenePosting() {
   }, 900);
 }
 
+function hideExcalidrawExtraChrome() {
+  if (!els.excalidrawBoard) return;
+  const blockedTexts = [
+    "画框工具",
+    "嵌入网页",
+    "激光笔",
+    "Mermaid 至 Excalidraw",
+    "素材库",
+    "GitHub",
+    "Follow us",
+    "Discord chat"
+  ];
+  const blockedLabels = ["GitHub", "X", "Discord", "素材库"];
+  const selector = [
+    '[data-testid="toolbar-frame"]',
+    '[data-testid="toolbar-embeddable"]',
+    '[data-testid="toolbar-laser"]',
+    '[data-testid="library-button"]',
+    '[data-testid="library-menu-button"]',
+    ".library-button",
+    ".App-toolbar__library-button",
+    "button",
+    "a",
+    '[role="button"]',
+    '[role="menuitem"]'
+  ].join(",");
+
+  for (const node of els.excalidrawBoard.querySelectorAll(selector)) {
+    const text = node.textContent.trim().replace(/\s+/g, " ");
+    const aria = node.getAttribute("aria-label") || "";
+    const title = node.getAttribute("title") || "";
+    if (
+      blockedTexts.includes(text) ||
+      blockedLabels.includes(aria) ||
+      blockedLabels.includes(title) ||
+      node.matches('[data-testid="toolbar-frame"], [data-testid="toolbar-embeddable"], [data-testid="toolbar-laser"], [data-testid="library-button"], [data-testid="library-menu-button"], .library-button, .App-toolbar__library-button')
+    ) {
+      node.hidden = true;
+      node.style.display = "none";
+    }
+  }
+}
+
+function watchExcalidrawChrome() {
+  if (!els.excalidrawBoard || excalidrawState.chromeObserver) return;
+  hideExcalidrawExtraChrome();
+  excalidrawState.chromeObserver = new MutationObserver(hideExcalidrawExtraChrome);
+  excalidrawState.chromeObserver.observe(els.excalidrawBoard, {
+    childList: true,
+    subtree: true
+  });
+}
+
 function applyRemoteScene(event) {
   if (!excalidrawState.api || !event || (event.createdAt || 0) < excalidrawState.latestSceneAt) return;
   const scene = scenePayloadFrom(event);
@@ -552,6 +606,7 @@ async function mountExcalidrawBoard() {
         }
       })
     );
+    watchExcalidrawChrome();
   } catch (error) {
     console.error(error);
     els.excalidrawBoard.innerHTML = '<div class="board-loading">白板加载失败，请刷新重试</div>';

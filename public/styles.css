@@ -859,6 +859,19 @@ textarea {
     sans-serif;
 }
 
+.excalidraw-board [data-testid="toolbar-frame"],
+.excalidraw-board [data-testid="toolbar-embeddable"],
+.excalidraw-board [data-testid="toolbar-laser"],
+.excalidraw-board [data-testid="library-button"],
+.excalidraw-board [data-testid="library-menu-button"],
+.excalidraw-board .library-button,
+.excalidraw-board .App-toolbar__library-button,
+.excalidraw-board a[aria-label="GitHub"],
+.excalidraw-board a[aria-label="X"],
+.excalidraw-board a[aria-label="Discord"] {
+  display: none !important;
+}
+
 .board-loading {
   height: 100%;
   display: grid;
