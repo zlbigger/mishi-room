@@ -73,7 +73,8 @@ const state = {
   cursors: new Map(),
   cursorSentAt: 0,
   drawFrame: null,
-  timer: null
+  timer: null,
+  connectionCheckTimer: null
 };
 
 const ctx = els.board.getContext("2d");
@@ -1008,6 +1009,32 @@ async function postEvent(event) {
   }
 }
 
+function scheduleRoomAvailabilityCheck() {
+  if (!state.roomId || !state.token || state.connectionCheckTimer) return;
+  state.connectionCheckTimer = setTimeout(async () => {
+    state.connectionCheckTimer = null;
+    if (!state.roomId || !state.token) return;
+    try {
+      const response = await fetch(`/api/rooms/${state.roomId}/join`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ password: state.password, token: state.token })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 404 || data.error === "not_found") {
+        handleDestroyed({ reason: "missing" });
+        return;
+      }
+      if (response.ok && data.room) {
+        state.room = data.room;
+        updateTimer();
+      }
+    } catch {
+      // EventSource will keep retrying; avoid turning short network jitter into a false destroy.
+    }
+  }, 1500);
+}
+
 function connectEvents() {
   if (state.source) state.source.close();
   const source = new EventSource(`/api/rooms/${state.roomId}/events?token=${encodeURIComponent(state.token)}`);
@@ -1036,6 +1063,7 @@ function connectEvents() {
   source.onerror = () => {
     if (state.room && Date.now() < state.room.expiresAt) {
       toast("连接有点不稳，正在自动重连。");
+      scheduleRoomAvailabilityCheck();
     }
   };
 }
@@ -1295,11 +1323,15 @@ function handleDestroyed(data) {
   clearRoomSession();
   if (state.source) state.source.close();
   state.source = null;
+  clearTimeout(state.connectionCheckTimer);
+  state.connectionCheckTimer = null;
   clearTimeout(excalidrawState.postTimer);
   excalidrawState.pendingScene = null;
   excalidrawState.postInFlight = false;
+  state.roomId = null;
   state.room = null;
   state.token = null;
+  state.password = "";
   state.self = null;
   state.events = [];
   state.selectedImageId = null;
@@ -1319,7 +1351,10 @@ function handleDestroyed(data) {
   els.cursorLayer.innerHTML = "";
   clearInterval(state.timer);
   window.history.pushState(null, "", "/");
-  const reason = data?.reason === "expired" ? "房间已到期自动销毁。" : "房间已经销毁。";
+  const reason =
+    data?.reason === "expired" ? "房间已到期自动销毁。" :
+    data?.reason === "missing" ? "房间连接已失效，请重新开一间密室。" :
+    "房间已经销毁。";
   showLobby(reason);
 }
 

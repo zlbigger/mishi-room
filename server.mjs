@@ -1,17 +1,21 @@
 import { createHash, pbkdf2Sync, randomBytes, timingSafeEqual } from "node:crypto";
 import { createReadStream, existsSync, statSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const publicDir = join(__dirname, "public");
+const dataDir = join(__dirname, ".data");
+const roomsStorePath = join(dataDir, "rooms.json");
 const port = Number(process.env.PORT || 4173);
 const maxBodyBytes = 20 * 1024 * 1024;
 const maxStoredEvents = 900;
 const maxRoomMembers = 2;
 const sessionHoldMs = 10000;
 const rooms = new Map();
+let persistTimer = null;
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -96,6 +100,67 @@ function roomSummary(room) {
     destroyed: room.destroyed,
     eventCount: room.events.length
   };
+}
+
+function serializeRoom(room) {
+  return {
+    id: room.id,
+    title: room.title,
+    mode: room.mode,
+    createdAt: room.createdAt,
+    expiresAt: room.expiresAt,
+    salt: room.salt,
+    passwordHash: room.passwordHash,
+    events: room.events,
+    sessions: [...room.sessions.values()],
+    destroyed: room.destroyed
+  };
+}
+
+function hydrateRoom(saved) {
+  if (!saved || saved.destroyed || Date.now() > Number(saved.expiresAt)) return null;
+  return {
+    id: saved.id,
+    title: sanitizeText(saved.title, "密室") || "密室",
+    mode: ["intimate", "stranger", "work"].includes(saved.mode) ? saved.mode : "intimate",
+    createdAt: Number(saved.createdAt) || Date.now(),
+    expiresAt: Number(saved.expiresAt),
+    salt: saved.salt,
+    passwordHash: saved.passwordHash,
+    events: Array.isArray(saved.events) ? saved.events : [],
+    sessions: new Map((Array.isArray(saved.sessions) ? saved.sessions : []).map((session) => [session.token, session])),
+    clients: new Map(),
+    destroyed: false
+  };
+}
+
+async function persistRoomsNow() {
+  clearTimeout(persistTimer);
+  persistTimer = null;
+  const activeRooms = [...rooms.values()].filter((room) => !room.destroyed && Date.now() <= room.expiresAt);
+  await mkdir(dataDir, { recursive: true });
+  await writeFile(roomsStorePath, JSON.stringify({ version: 1, rooms: activeRooms.map(serializeRoom) }), "utf8");
+}
+
+function schedulePersistRooms() {
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistRoomsNow().catch((error) => console.error("[persist_rooms]", error));
+  }, 250);
+  persistTimer.unref?.();
+}
+
+async function restoreRooms() {
+  try {
+    const data = JSON.parse(await readFile(roomsStorePath, "utf8"));
+    for (const saved of Array.isArray(data.rooms) ? data.rooms : []) {
+      const room = hydrateRoom(saved);
+      if (room?.id) rooms.set(room.id, room);
+    }
+    if (rooms.size) console.log(`Restored ${rooms.size} active room(s).`);
+  } catch (error) {
+    if (error.code !== "ENOENT") console.error("[restore_rooms]", error);
+  }
 }
 
 function getRoom(id) {
@@ -228,6 +293,7 @@ function destroyRoom(room, reason = "destroyed", actor = null) {
   }
   room.clients.clear();
   setTimeout(() => rooms.delete(room.id), 1000);
+  schedulePersistRooms();
 }
 
 function clientColor(index) {
@@ -332,6 +398,7 @@ async function handleApi(req, res) {
         destroyed: false
       };
       rooms.set(id, room);
+      schedulePersistRooms();
       json(res, 201, { room: roomSummary(room) });
       return;
     }
@@ -395,6 +462,7 @@ async function handleApi(req, res) {
             return;
           }
           existingSession.lastSeen = Date.now();
+          schedulePersistRooms();
           json(res, 200, {
             token: resumeToken,
             self: existingSession,
@@ -425,6 +493,7 @@ async function handleApi(req, res) {
           lastSeen: Date.now()
         };
         room.sessions.set(token, session);
+        schedulePersistRooms();
         json(res, 200, {
           token,
           self: session,
@@ -494,6 +563,7 @@ async function handleApi(req, res) {
           room.events.push(payload);
           pruneEvents(room);
         }
+        if (type !== "cursor") schedulePersistRooms();
         broadcast(room, type, payload, type === "cursor" ? token : null);
         json(res, 202, { ok: true, id: payload.id });
         return;
@@ -543,6 +613,16 @@ setInterval(() => {
     }
   }
 }, 30000).unref();
+
+for (const signal of ["SIGINT", "SIGTERM"]) {
+  process.on(signal, () => {
+    persistRoomsNow()
+      .catch((error) => console.error("[persist_rooms_before_exit]", error))
+      .finally(() => process.exit(0));
+  });
+}
+
+await restoreRooms();
 
 server.listen(port, "0.0.0.0", () => {
   console.log(`Mishi Room running at http://localhost:${port}`);
