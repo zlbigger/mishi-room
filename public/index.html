@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="密室是一个给两个人使用的临时互动房间：分享链接和口令，一起写、画、贴图、传文件，结束后销毁。"
+      content="密室是一个不需要成为好友，也可以一起待一会儿的临时空间。发链接和口令，两个人写画贴图，聊完即可销毁。"
     />
-    <title>密室 - 会消失的双人互动房间</title>
+    <title>密室 - 不加好友，也能一起待一会儿</title>
     <link rel="stylesheet" href="https://unpkg.com/@excalidraw/excalidraw@0.18.1/dist/prod/index.css" />
-    <link rel="stylesheet" href="/styles.css?v=20" />
+    <link rel="stylesheet" href="/styles.css?v=21" />
     <script type="importmap">
       {
         "imports": {
@@ -25,31 +25,35 @@
     <div id="app">
       <section id="lobby" class="lobby">
         <div class="lobby-copy">
-          <p class="eyebrow">One link. One room. Gone when done.</p>
+          <p class="eyebrow">不加好友，也能一起待一会儿</p>
           <h1>密室</h1>
-          <p class="lead">给某个人发一个链接，进入一间只属于你们两个人的临时空间。能写、能画、能贴图，聊完就销毁。</p>
+          <p class="lead">有些话，不适合发生在通讯录里。发一个链接，和某个人进入一间只属于此刻的房间，写写画画，聊完就散场。</p>
           <div class="promise-row" aria-label="产品特点">
-            <span>免注册</span>
+            <span>不用加好友</span>
             <span>只限两人</span>
-            <span>复制链接邀请</span>
-            <span>一起涂鸦贴图</span>
-            <span>一键销毁</span>
+            <span>口令进入</span>
+            <span>不进通讯录</span>
+            <span>聊完可销毁</span>
+          </div>
+          <div class="boundary-note">
+            <strong>微信里，你们是已经定义关系的人。</strong>
+            <p>密室里，你们只是此刻在一起的两个人。关系可以发生，但不必被记录。</p>
           </div>
           <div class="scenario-grid" aria-label="密室适用场景">
             <article class="scenario-card scenario-love">
               <span class="scenario-mark">01</span>
-              <h2>情侣密室</h2>
-              <p>异地晚安、纪念日惊喜、只给对方看的贴图和手写话。</p>
+              <h2>加好友之前</h2>
+              <p>刚认识、有点好感，但还不想把关系放进社交列表。</p>
             </article>
             <article class="scenario-card scenario-ice">
               <span class="scenario-mark">02</span>
-              <h2>陌生人破冰</h2>
-              <p>不用加好友，先用一张白板交换今天的心情和小秘密。</p>
+              <h2>轻轻破冰</h2>
+              <p>不用尬聊，先一起画点东西、贴张图，看看聊不聊得来。</p>
             </article>
             <article class="scenario-card scenario-work">
               <span class="scenario-mark">03</span>
-              <h2>临时协作</h2>
-              <p>讲题、对稿、圈图、传附件，开完即走，不留下复杂工作流。</p>
+              <h2>聊完就散场</h2>
+              <p>深夜情绪、临时讨论、轻协作，都可以开始，也不必继续。</p>
             </article>
           </div>
           <div class="lobby-showcase" aria-hidden="true">
@@ -57,10 +61,10 @@
               <span class="mini-pin"></span>
               <span class="mini-line line-a"></span>
               <span class="mini-line line-b"></span>
-              <span class="mini-bubble bubble-a">今晚见</span>
-              <span class="mini-bubble bubble-b">把想法圈出来</span>
+              <span class="mini-bubble bubble-a">先别加好友</span>
+              <span class="mini-bubble bubble-b">在这里聊一会儿</span>
               <span class="mini-photo"></span>
-              <span class="mini-note">3 分钟后，也可以让它消失</span>
+              <span class="mini-note">有些关系，只需要存在 30 分钟</span>
             </div>
             <div class="mini-ticket">
               <span>room code</span>
@@ -71,14 +75,14 @@
 
         <form id="create-form" class="entry-panel" autocomplete="off">
           <div class="form-head">
-            <span class="panel-kicker">Create a private room</span>
-            <h2>选择一间密室</h2>
-            <p>选一个场景，系统会生成链接和口令。对方打开后直接进入同一块白板。</p>
+            <span class="panel-kicker">A room before relationship</span>
+            <h2>开一间只属于此刻的房间</h2>
+            <p>把链接和口令发给对方。无需加好友，只有两个人能进入，结束后可以销毁。</p>
           </div>
 
           <label>
             房间名称
-            <input id="room-title" name="title" maxlength="32" value="今晚的双人密室" />
+            <input id="room-title" name="title" maxlength="32" value="只属于此刻的密室" />
           </label>
 
           <label>
@@ -95,20 +99,20 @@
               <label>
                 <input type="radio" name="mode" value="intimate" checked />
                 <span class="mode-icon">♡</span>
-                <strong>情侣密室</strong>
-                <small>写晚安、贴照片、留一句只给对方看的话。</small>
+                <strong>有点好感</strong>
+                <small>不急着定义关系，先一起待一会儿。</small>
               </label>
               <label>
                 <input type="radio" name="mode" value="stranger" />
                 <span class="mode-icon">?</span>
                 <strong>陌生人破冰</strong>
-                <small>不用加好友，用涂鸦和问题先聊三分钟。</small>
+                <small>不用加好友，先用一张白板试试频率。</small>
               </label>
               <label>
                 <input type="radio" name="mode" value="work" />
                 <span class="mode-icon">↗</span>
                 <strong>临时协作</strong>
-                <small>讲题、圈图、同步想法，结束后清场。</small>
+                <small>讲题、圈图、传附件，开完即走。</small>
               </label>
             </div>
           </fieldset>
@@ -123,7 +127,7 @@
           </fieldset>
 
           <p id="create-error" class="field-error" role="alert"></p>
-          <button class="primary-action" type="submit">生成密室链接</button>
+          <button class="primary-action" type="submit">开一间密室</button>
         </form>
 
         <form id="join-form" class="entry-panel hidden" autocomplete="off">
@@ -266,6 +270,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=20" type="module"></script>
+    <script src="/app.js?v=21" type="module"></script>
   </body>
 </html>

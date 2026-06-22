@@ -81,15 +81,15 @@ const handwritingFont =
   '"Hannotate SC", "HanziPen SC", "Kaiti SC", STKaiti, KaiTi, "Comic Sans MS", "Bradley Hand", cursive';
 const modePresets = {
   intimate: {
-    title: "今晚的双人密室",
+    title: "只属于此刻的密室",
     passwordHint: "moon-2941"
   },
   stranger: {
-    title: "三分钟破冰密室",
+    title: "不加好友破冰室",
     passwordHint: "hello-2049"
   },
   work: {
-    title: "临时协作密室",
+    title: "临时共创密室",
     passwordHint: "sync-1024"
   }
 };

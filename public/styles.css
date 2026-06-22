@@ -183,6 +183,34 @@ h1 {
   background: var(--yellow);
 }
 
+.boundary-note {
+  width: min(100%, 680px);
+  border: 2px dashed var(--line);
+  border-radius: 8px;
+  background: #fffdf6;
+  box-shadow: 5px 5px 0 var(--line);
+  padding: 14px 16px;
+  transform: rotate(-0.4deg);
+}
+
+.boundary-note strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+.boundary-note p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 17px;
+  font-weight: 850;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
 .scenario-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
