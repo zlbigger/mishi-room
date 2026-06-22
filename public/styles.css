@@ -49,7 +49,7 @@ body {
 }
 
 body::before {
-  content: "密室  画一画  写一写  贴一贴";
+  content: "不要急着加好友  先在这里待一会儿  密室";
   position: fixed;
   left: 20px;
   right: 20px;
@@ -100,18 +100,65 @@ textarea:focus-visible {
   min-height: 100dvh;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 28px;
+  gap: 30px;
   align-items: center;
   justify-items: center;
-  padding: max(42px, env(safe-area-inset-top)) max(34px, env(safe-area-inset-right))
-    max(34px, env(safe-area-inset-bottom)) max(34px, env(safe-area-inset-left));
+  padding: max(38px, env(safe-area-inset-top)) max(42px, env(safe-area-inset-right))
+    max(36px, env(safe-area-inset-bottom)) max(42px, env(safe-area-inset-left));
 }
 
 .lobby-copy {
   min-width: 0;
-  width: min(100%, 920px);
+  width: min(100%, 1120px);
   display: grid;
-  gap: 22px;
+  gap: 18px;
+}
+
+.hero-top {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(340px, 0.78fr);
+  gap: clamp(28px, 5vw, 72px);
+  align-items: center;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: #fffdf3;
+  box-shadow: 9px 9px 0 var(--line);
+  padding: clamp(24px, 4vw, 46px);
+}
+
+.hero-top::before,
+.hero-top::after {
+  content: "";
+  position: absolute;
+  border: 2px solid var(--line);
+  pointer-events: none;
+}
+
+.hero-top::before {
+  right: 34px;
+  top: -20px;
+  width: 96px;
+  height: 34px;
+  border-radius: 6px;
+  background: var(--pink);
+  transform: rotate(3deg);
+}
+
+.hero-top::after {
+  right: 16%;
+  bottom: -17px;
+  width: 74px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--cyan);
+  transform: rotate(-4deg);
+}
+
+.hero-words {
+  min-width: 0;
+  display: grid;
+  gap: 18px;
   justify-items: start;
 }
 
@@ -140,7 +187,7 @@ p {
 h1 {
   max-width: 720px;
   margin-bottom: 0;
-  font-size: 132px;
+  font-size: clamp(82px, 11vw, 148px);
   font-weight: 900;
   line-height: 0.88;
   color: #30251e;
@@ -150,7 +197,7 @@ h1 {
 
 .lead {
   min-width: 0;
-  max-width: 610px;
+  max-width: 660px;
   margin-bottom: 0;
   color: #4b4036;
   font-size: 24px;
@@ -162,12 +209,14 @@ h1 {
 
 .promise-row {
   min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
+  width: 100%;
 }
 
 .promise-row span {
+  min-width: 0;
   border: 2px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -175,6 +224,7 @@ h1 {
   padding: 8px 12px;
   color: var(--ink);
   font-weight: 900;
+  text-align: center;
 }
 
 .promise-row span:nth-child(2n) {
@@ -186,7 +236,7 @@ h1 {
 }
 
 .boundary-note {
-  width: min(100%, 680px);
+  width: min(100%, 640px);
   border: 2px dashed var(--line);
   border-radius: 8px;
   background: #fffdf6;
@@ -218,7 +268,7 @@ h1 {
   flex-wrap: wrap;
   align-items: center;
   gap: 12px 16px;
-  margin: 2px 0 4px;
+  margin: 0;
 }
 
 .hero-create .primary-action {
@@ -249,8 +299,8 @@ h1 {
 .scenario-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  width: min(100%, 760px);
+  gap: 14px;
+  width: 100%;
 }
 
 .scenario-card {
@@ -321,24 +371,38 @@ h1 {
 }
 
 .lobby-showcase {
+  position: relative;
   min-width: 0;
-  width: min(100%, 620px);
+  width: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 170px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
-  align-items: end;
-  margin-top: 8px;
+  align-items: stretch;
+  justify-items: end;
+  margin: 0;
 }
 
 .mini-board {
   position: relative;
-  min-height: 230px;
+  width: min(100%, 430px);
+  min-height: 360px;
   overflow: hidden;
   border: 2px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
-  box-shadow: var(--shadow-hard);
-  transform: rotate(-0.5deg);
+  box-shadow: 8px 8px 0 var(--line);
+  transform: rotate(1.2deg);
+}
+
+.mini-board::before {
+  content: "此刻在场";
+  position: absolute;
+  left: 64px;
+  top: 16px;
+  border-bottom: 2px dashed var(--line);
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 900;
 }
 
 .mini-pin {
@@ -362,18 +426,18 @@ h1 {
 }
 
 .line-a {
-  width: 190px;
-  height: 70px;
-  left: 74px;
-  top: 52px;
+  width: 220px;
+  height: 86px;
+  left: 64px;
+  top: 96px;
   transform: rotate(-8deg);
 }
 
 .line-b {
-  width: 120px;
-  height: 54px;
-  right: 58px;
-  bottom: 36px;
+  width: 136px;
+  height: 58px;
+  right: 52px;
+  bottom: 94px;
   border-color: var(--mint);
   transform: rotate(12deg);
 }
@@ -390,24 +454,24 @@ h1 {
 }
 
 .bubble-a {
-  left: 42px;
-  bottom: 42px;
+  left: 34px;
+  bottom: 98px;
   background: var(--yellow);
 }
 
 .bubble-b {
   right: 26px;
-  top: 28px;
+  top: 72px;
   background: var(--cyan);
   transform: rotate(2deg);
 }
 
 .mini-photo {
   position: absolute;
-  right: 118px;
-  bottom: 22px;
-  width: 82px;
-  height: 72px;
+  right: 120px;
+  bottom: 44px;
+  width: 96px;
+  height: 84px;
   border: 2px solid var(--line);
   border-radius: 6px;
   background: var(--coral);
@@ -452,13 +516,17 @@ h1 {
 }
 
 .mini-ticket {
+  position: absolute;
+  right: clamp(18px, 4vw, 44px);
+  bottom: clamp(16px, 4vw, 34px);
+  width: 176px;
   border: 2px solid var(--line);
   border-radius: 8px;
   background: var(--green-soft);
   box-shadow: var(--shadow-hard);
   color: var(--ink);
   padding: 16px;
-  transform: rotate(2deg);
+  transform: rotate(-3deg);
 }
 
 .mini-ticket span,
@@ -1398,12 +1466,20 @@ textarea {
   }
 
   .lobby-copy {
-    max-width: 100%;
     padding-top: 24px;
   }
 
-  h1 {
-    font-size: 108px;
+  .hero-top {
+    grid-template-columns: 1fr;
+  }
+
+  .lobby-showcase {
+    justify-items: start;
+  }
+
+  .mini-board {
+    width: min(100%, 620px);
+    min-height: 260px;
   }
 
   .lead {
@@ -1436,13 +1512,9 @@ textarea {
 }
 
 @media (max-width: 720px) {
-  .lobby-showcase {
-    grid-template-columns: 1fr;
-  }
-
   .mini-ticket {
     width: min(240px, 100%);
-    transform: none;
+    transform: rotate(-2deg);
   }
 
   .mode-cards label {
@@ -1455,6 +1527,21 @@ textarea {
     width: 100%;
     overflow: hidden;
     padding: 18px;
+  }
+
+  .hero-top {
+    gap: 22px;
+    box-shadow: 5px 5px 0 var(--line);
+    padding: 20px;
+  }
+
+  .hero-top::before {
+    right: 18px;
+    width: 78px;
+  }
+
+  .hero-top::after {
+    display: none;
   }
 
   h1 {
@@ -1487,8 +1574,22 @@ textarea {
     box-shadow: 4px 4px 0 var(--line);
   }
 
+  .hero-create {
+    width: 100%;
+  }
+
+  .hero-create .primary-action {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .hero-create span {
+    width: 100%;
+    text-align: center;
+  }
+
   .mini-board {
-    min-height: 180px;
+    min-height: 210px;
   }
 
   .line-a {
