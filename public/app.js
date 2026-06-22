@@ -1009,7 +1009,12 @@ function connectEvents() {
 
 async function createRoom(form) {
   const formData = new FormData(form);
-  const password = String(formData.get("password") || "").trim();
+  let password = String(formData.get("password") || "").trim();
+  if (!password) {
+    password = makePassword();
+    if (els.roomPassword) els.roomPassword.value = password;
+    formData.set("password", password);
+  }
   if (password.length < 4) {
     setError(els.createError, "口令至少需要 4 个字符。");
     return;
@@ -1400,7 +1405,7 @@ function bindEvents() {
     input.addEventListener("change", () => applyModePreset(input.value));
   });
 
-  els.randomPassword.addEventListener("click", () => {
+  els.randomPassword?.addEventListener("click", () => {
     els.roomPassword.value = makePassword();
   });
 

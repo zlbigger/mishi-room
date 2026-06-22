@@ -9,7 +9,7 @@
     />
     <title>密室 - 不加好友，也能一起待一会儿</title>
     <link rel="stylesheet" href="https://unpkg.com/@excalidraw/excalidraw@0.18.1/dist/prod/index.css" />
-    <link rel="stylesheet" href="/styles.css?v=21" />
+    <link rel="stylesheet" href="/styles.css?v=22" />
     <script type="importmap">
       {
         "imports": {
@@ -39,6 +39,17 @@
             <strong>微信里，你们是已经定义关系的人。</strong>
             <p>密室里，你们只是此刻在一起的两个人。关系可以发生，但不必被记录。</p>
           </div>
+
+          <form id="create-form" class="hero-create" autocomplete="off">
+            <input id="room-title" name="title" type="hidden" value="只属于此刻的密室" />
+            <input id="room-password" name="password" type="hidden" />
+            <input name="mode" type="hidden" value="intimate" />
+            <input name="ttl" type="hidden" value="60" />
+            <p id="create-error" class="field-error" role="alert"></p>
+            <button class="primary-action" type="submit">开房</button>
+            <span>自动生成链接和口令，只给两个人。</span>
+          </form>
+
           <div class="scenario-grid" aria-label="密室适用场景">
             <article class="scenario-card scenario-love">
               <span class="scenario-mark">01</span>
@@ -72,63 +83,6 @@
             </div>
           </div>
         </div>
-
-        <form id="create-form" class="entry-panel" autocomplete="off">
-          <div class="form-head">
-            <span class="panel-kicker">A room before relationship</span>
-            <h2>开一间只属于此刻的房间</h2>
-            <p>把链接和口令发给对方。无需加好友，只有两个人能进入，结束后可以销毁。</p>
-          </div>
-
-          <label>
-            房间名称
-            <input id="room-title" name="title" maxlength="32" value="只属于此刻的密室" />
-          </label>
-
-          <label>
-            进入口令
-            <span class="inline-control">
-              <input id="room-password" name="password" maxlength="48" />
-              <button class="icon-button" id="random-password" type="button" title="生成口令" aria-label="生成口令">↻</button>
-            </span>
-          </label>
-
-          <fieldset>
-            <legend>房间氛围</legend>
-            <div class="mode-cards">
-              <label>
-                <input type="radio" name="mode" value="intimate" checked />
-                <span class="mode-icon">♡</span>
-                <strong>有点好感</strong>
-                <small>不急着定义关系，先一起待一会儿。</small>
-              </label>
-              <label>
-                <input type="radio" name="mode" value="stranger" />
-                <span class="mode-icon">?</span>
-                <strong>陌生人破冰</strong>
-                <small>不用加好友，先用一张白板试试频率。</small>
-              </label>
-              <label>
-                <input type="radio" name="mode" value="work" />
-                <span class="mode-icon">↗</span>
-                <strong>临时协作</strong>
-                <small>讲题、圈图、传附件，开完即走。</small>
-              </label>
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend>自动销毁</legend>
-            <div class="segmented">
-              <label><input type="radio" name="ttl" value="60" checked />1 小时</label>
-              <label><input type="radio" name="ttl" value="1440" />24 小时</label>
-              <label><input type="radio" name="ttl" value="10080" />7 天</label>
-            </div>
-          </fieldset>
-
-          <p id="create-error" class="field-error" role="alert"></p>
-          <button class="primary-action" type="submit">开一间密室</button>
-        </form>
 
         <form id="join-form" class="entry-panel hidden" autocomplete="off">
           <div class="form-head">
@@ -270,6 +224,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js?v=21" type="module"></script>
+    <script src="/app.js?v=22" type="module"></script>
   </body>
 </html>

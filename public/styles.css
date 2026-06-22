@@ -99,18 +99,20 @@ textarea:focus-visible {
 .lobby {
   min-height: 100dvh;
   display: grid;
-  grid-template-columns: minmax(0, 1.18fr) minmax(360px, 460px);
-  gap: 38px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
   align-items: center;
-  padding: max(34px, env(safe-area-inset-top)) max(34px, env(safe-area-inset-right))
+  justify-items: center;
+  padding: max(42px, env(safe-area-inset-top)) max(34px, env(safe-area-inset-right))
     max(34px, env(safe-area-inset-bottom)) max(34px, env(safe-area-inset-left));
 }
 
 .lobby-copy {
   min-width: 0;
-  max-width: 760px;
+  width: min(100%, 920px);
   display: grid;
   gap: 22px;
+  justify-items: start;
 }
 
 .eyebrow {
@@ -209,6 +211,39 @@ h1 {
   font-weight: 850;
   line-height: 1.5;
   text-wrap: pretty;
+}
+
+.hero-create {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin: 2px 0 4px;
+}
+
+.hero-create .primary-action {
+  width: auto;
+  min-width: 184px;
+  min-height: 58px;
+  padding: 12px 28px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 28px;
+  transform: rotate(-1deg);
+}
+
+.hero-create .primary-action:hover {
+  background: var(--accent);
+}
+
+.hero-create span {
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.hero-create .field-error {
+  flex-basis: 100%;
 }
 
 .scenario-grid {
